@@ -52,6 +52,8 @@ bool hiddenActivated = false;
 bool emergencyChargingUsed = false;
 bool emergencyChargeMode = false;
 bool countDownStarted = false;
+bool firstStage = false;
+unsigned long waitForStageTwo = 0;
 unsigned long countDownStart = 0;
 const long countDownInterval = 15000;
 
@@ -97,6 +99,9 @@ float iAmSpeed = 0;
 
 void setup(){
     Serial.begin(9600);
+    Wire.begin();
+    imu.init();
+    imu.enableDefault();
     IrReceiver.begin(RECV_PIN, ENABLE_LED_FEEDBACK);
     lineSensors.initFiveSensors();
 
@@ -191,29 +196,45 @@ void softwareBattery(){
 
 void hiddenFeature(){
     int currentMillis = millis();
+    imu.read();
+    Serial.println(imu.g.x);
+    Serial.println(firstStage);
 
-    int8_t averageSpeed = iAmSpeed;
-    int8_t distanceChange = MeassureDistance - lastDistance;
-
-
+    int8_t averageSpeed = 0; //speedometer();
+    unsigned long distanceChange = MeassureDistance - lastDistance;
 
     // Function to turn on hiddenActivated
-    if (imu.g.z > 5000){
-        for (int i = 0; i < 10000; i++){
-            if (imu.g.z < -5000){
-                hiddenActivated = true;
-            } // end if
-        } // end for
+    if ((imu.g.x > 15000) and (firstStage == false)){
+        firstStage = true;
+        waitForStageTwo = currentMillis;
+    } // end if
+
+    if (firstStage == true){
+        if (imu.g.y > 15000){
+            hiddenActivated = true;
+            ledRed(1);
+            display.clear();
+            display.print(F("Hidden feature"));
+        } // end if
+    } // end if
+
+    if ((currentMillis - waitForStageTwo > 5000) and (firstStage == true)){
+        firstStage = false;
     } // end if
 
     // Function to turn off hiddenActivated
     if ((hiddenActivated == true) && (countDownStarted == false)){
         countDownStart = currentMillis;
         countDownStarted = true;
+        display.clear();
+        display.setLayout21x8();
+        display.print(F("HiddenFeature deactivated"));
     } // end if
 
     if (currentMillis - countDownStart > countDownInterval){
         hiddenActivated = false;
+        firstStage = false;
+        ledRed(0);
     } // end if
 
     // Function to turn on emergencyChargingMode
@@ -511,30 +532,57 @@ void calibrateLineSensors(){
 
 void chargingMode(){
     unsigned long currentMillis = millis();
-    if ((debit >= 0) && (account >= debit)){
+    batteryLevel = constrain(batteryLevel, 0, 100);
+    if ((debit > 0) && (account >= debit)){
         account = account - debit;
         debit = 0;
         display.clear();
         display.print("Debit account cleared");
     } // end if
 
-    if ((currentMillis % 10) == 0){                           // Just a idea, test for reliability
-    display.clear();
-    display.print(F("Charging mode activated"));
-    display.gotoXY(0,2);
-    display.print(F("A = add 10%"));
-    display.gotoXY(0,3);
-    display.print(F("B = add 50%"));
-    display.gotoXY(0,4);
-    display.print(F("C = Fully Charged"));
-    display.gotoXY(0,6);
-    display.print(F("Bank account = "));
-    display.gotoXY(15, 6);
-    display.print(account);
-    display.gotoXY(0, 7);
-    display.print(F("Debit account = "));
-    display.gotoXY(15, 7);
-    display.print(debit);
+    if (batteryLevel == 100){
+        display.clear();
+        display.setLayout21x8();
+        display.print(F("Battery full"));
+        display.gotoXY(0,3);
+        display.print(F("Battery = "));
+        display.gotoXY(15, 3);
+        display.print(batteryLevel);
+        display.gotoXY(0,4);
+        display.print(F("Bank account = "));
+        display.gotoXY(15, 4);
+        display.print(account);
+        display.gotoXY(0, 5);
+        display.print(F("Debit account = "));
+        display.gotoXY(16, 5);
+        display.print(debit);
+        display.gotoXY(0,7);
+        display.print(F("Press A to exit"));
+        buttonA.waitForButton();
+    } // end if
+
+    if ((currentMillis % 500) == 0){                           // Just a idea, test for reliability
+        display.clear();
+        display.setLayout21x8();
+        display.print(F("Charging mode"));
+        display.gotoXY(0,2);
+        display.print(F("A = add 10%"));
+        display.gotoXY(0,3);
+        display.print(F("B = add 50%"));
+        display.gotoXY(0,4);
+        display.print(F("C = Fully Charged"));
+        display.gotoXY(0,5);
+        display.print(F("Battery level ="));
+        display.gotoXY(16, 5);
+        display.print(batteryLevel);
+        display.gotoXY(0,6);
+        display.print(F("Bank account  = "));
+        display.gotoXY(16, 6);
+        display.print(account);
+        display.gotoXY(0, 7);
+        display.print(F("Debit account = "));
+        display.gotoXY(16, 7);
+        display.print(debit);
     } // end if
 
     if (buttonA.isPressed() == 1){
@@ -542,7 +590,7 @@ void chargingMode(){
             account -= 10;
             batteryLevel += 10;
             display.clear();
-            display.print(F("Wait one second while charging"));
+            display.print(F("Wait while charging"));
             delay(1000);
         } // end if
         
@@ -551,15 +599,15 @@ void chargingMode(){
             display.clear();
             display.setLayout21x8();
             display.print(F("You are missing"));
-            display.gotoXY(15, 0);
+            display.gotoXY(16, 0);
             display.print(missingAmount);
-            display.gotoXY(18, 0);
+            display.gotoXY(19, 0);
             display.print(F("kr"));
             display.gotoXY(0, 1);
-            display.print(F("Do you want to charge on debit?"));
+            display.print(F("Charge on debit?"));
             display.gotoXY(0,2);
             display.print(F("A = Yes"));
-            display.gotoXY(12,2);
+            display.gotoXY(10,2);
             display.print(F("B = Cancel"));
 
             while ((buttonA.isPressed() == 0) and (buttonB.isPressed() == 0)){
@@ -567,6 +615,9 @@ void chargingMode(){
             if (buttonA.isPressed() == 1){
                 debit += missingAmount;
                 account = 0;
+                display.clear();
+                display.print(F("Wait while charging"));
+                delay(1000);
                 chargingMode();
             } // end if
 
@@ -581,7 +632,7 @@ void chargingMode(){
             account -= 50;
             batteryLevel += 50;
             display.clear();
-            display.print(F("Wait five second while charging"));
+            display.print(F("Wait while charging"));
             delay(5000);
         } // end if
         
@@ -590,15 +641,15 @@ void chargingMode(){
             display.clear();
             display.setLayout21x8();
             display.print(F("You are missing"));
-            display.gotoXY(15, 0);
+            display.gotoXY(16, 0);
             display.print(missingAmount);
-            display.gotoXY(18, 0);
+            display.gotoXY(19, 0);
             display.print(F("kr"));
             display.gotoXY(0, 1);
-            display.print(F("Do you want to charge on debit?"));
+            display.print(F("Charge on debit?"));
             display.gotoXY(0,2);
             display.print(F("A = Yes"));
-            display.gotoXY(12,2);
+            display.gotoXY(10,2);
             display.print(F("B = Cancel"));
 
             while ((buttonA.isPressed() == 0) and (buttonB.isPressed() == 0)){
@@ -606,6 +657,9 @@ void chargingMode(){
             if (buttonA.isPressed() == 1){
                 debit += missingAmount;
                 account = 0;
+                display.clear();
+                display.print(F("Wait while charging"));
+                delay(5000);
                 chargingMode();
             } // end if
 
@@ -617,12 +671,13 @@ void chargingMode(){
 
     if (buttonC.isPressed() == 1){
         int percentageUntilFull = (100 - batteryLevel);
+        int chargingTime = percentageUntilFull * 100;
         if (account >= (percentageUntilFull)){
             account -= percentageUntilFull;
             batteryLevel += percentageUntilFull;
             display.clear();
-            display.print(F("Wait ten second while charging"));
-            delay(10000);
+            display.print(F("Wait while charging"));
+            delay(chargingTime);
         } // end if
         
         else{
@@ -630,15 +685,15 @@ void chargingMode(){
             display.clear();
             display.setLayout21x8();
             display.print(F("You are missing"));
-            display.gotoXY(15, 0);
+            display.gotoXY(16, 0);
             display.print(missingAmount);
-            display.gotoXY(18, 0);
+            display.gotoXY(19, 0);
             display.print(F("kr"));
             display.gotoXY(0, 1);
-            display.print(F("Do you want to charge on debit?"));
+            display.print(F("Charge on debit?"));
             display.gotoXY(0,2);
             display.print(F("A = Yes"));
-            display.gotoXY(12,2);
+            display.gotoXY(10,2);
             display.print(F("B = Cancel"));
 
             while ((buttonA.isPressed() == 0) and (buttonB.isPressed() == 0)){
@@ -646,6 +701,9 @@ void chargingMode(){
             if (buttonA.isPressed() == 1){
                 debit += missingAmount;
                 account = 0;
+                display.clear();
+                display.print(F("Wait while charging"));
+                delay(chargingTime);
                 chargingMode();
             } // end if
 
