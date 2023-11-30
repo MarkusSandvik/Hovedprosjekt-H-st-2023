@@ -355,3 +355,4 @@ void chargingMode(){
         } // end else
     } // end if
 } // end void
+

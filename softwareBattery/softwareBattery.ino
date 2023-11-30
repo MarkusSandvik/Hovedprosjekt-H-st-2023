@@ -90,6 +90,10 @@ int missingAmount = 0;
 int account = 100;
 int debit = 0;
 
+// Variables for batteryLife
+int timesBelow5 = 0;
+bool incidentRegistered = false;
+
 
 ///////// TEST VARIABLES ////
 int batteryHealth = 2;
@@ -524,11 +528,11 @@ void calibrateLineSensors(){
   {
     motors.setSpeeds(-200, 200);
     lineSensors.calibrate();
-    }
+    } // end for
    
   motors.setSpeeds(0, 0);
   delay(2000);
-}
+} // end void
 
 void chargingMode(){
     unsigned long currentMillis = millis();
@@ -712,4 +716,15 @@ void chargingMode(){
             } // end if
         } // end else
     } // end if
+} // end void
+
+void batteryLife(){
+    if ((batteryHealth < 5) and (insidentRegistered == false)){
+        timesBelow5 += 1;
+        incidentRegistered = true;
+    }
+
+    if (batteryHealth > 5){
+        incidentRegistered = false;
+    }
 } // end void
