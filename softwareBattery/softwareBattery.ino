@@ -781,7 +781,7 @@ void batteryLife(){
         motorRunning = false;
         timerStarted = false;
 
-        batteryHealth -= round(((lastMinuteAverageSpeed / 10) + (constrain(lastMinuteMaxSpeed - 30, 0, 30) / 10) + (lastMinuteAboveSeventyPercent / 2000)));
+        batteryHealth -= round(((lastMinuteAverageSpeed / 10) + (constrain(lastMinuteMaxSpeed - 30, 0, 30) / 10) + (lastMinuteAboveSeventyPercent / 2000) + timesBelowFive));
         batteryHealth = constrain(batteryHealth, 0, 100);
     } // end if
 
