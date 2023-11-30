@@ -85,7 +85,7 @@ const long freeTimeInterval = 15000;
 // Variables for followLine
 unsigned int lineSensorValues[5];
 int16_t lastError = 0;
-const uint16_t maxSpeed = 200;
+const uint16_t maxSpeed = 350; //////////////////////// 200
 
 // Variables for charging
 int missingAmount = 0;
@@ -93,24 +93,24 @@ int account = 100;
 int debit = 0;
 
 // Variables for batteryLife
-int batteryHealth = 2;
+int batteryHealth = 100;
 int timesBelowFive = 0;
+int lastMinuteAverageSpeed = 0;
+int lastMinuteMaxSpeed = 0;
+int averageSpeed = 0;
+int maxSpeedLastMinute = 0;
 bool incidentRegistered = false;
 bool timerStarted = false;
 bool motorRunning = false;
-int averageSpeed = 0;
-int maxSpeedLastMinute = 0;
+bool serviceDone = false;
+bool productionFaultEffect = false;
 unsigned long timeNearMaxSpeed = 0;
 unsigned long aboveSeventyTimer = 0;
 unsigned long runningHours = 0;
 unsigned long runStartedAt = 0;
 unsigned long minuteStartDistance = 0;
-
-int lastMinuteAverageSpeed = 0;
-int lastMinuteMaxSpeed = 0;
+unsigned long randomProductionFault = 0;
 unsigned long lastMinuteAboveSeventyPercent = 0;
-
-
 
 
 ///////// TEST VARIABLES ////
@@ -125,6 +125,8 @@ void setup(){
     IrReceiver.begin(RECV_PIN, ENABLE_LED_FEEDBACK);
     lineSensors.initFiveSensors();
 
+    randomProductionFault = random(pow(2,17), pow(2,19));
+
     // Wait for button A to be pressed and released.
     display.clear();
     display.print(F("Press A"));
@@ -132,17 +134,14 @@ void setup(){
     display.print(F("to start"));
     buttonA.waitForButton();
     calibrateLineSensors();
-    
+    display.setLayout21x8();
 } // end setup
 
 void loop(){
-    IrRemote();
-    softwareBattery();
-    showBatteryStatus();
     SpeedometerAndMeassureDistance();
-    driveMode();
-    //followLine();
-    //taxiDriver();
+    followLine();
+    batteryLife();
+    showBatteryStatus();
 } // end loop
 
 void IrRemote(){
@@ -759,18 +758,19 @@ void batteryLife(){
         maxSpeedLastMinute = iAmSpeed;
     } // end if
 
-    if (iAmSpeed > (400 * 0,7) and (timerStarted == false)){        // Start recording time for motors going above 70% of absolute max speed
+    if (iAmSpeed > (50 * 0,7) and (timerStarted == false)){        // Start recording time for motors going above 70% of absolute max speed
         aboveSeventyTimer = currentMillis;                          // when speed goes above 70%
         timerStarted = true;
     } // end if
 
-    if (iAmSpeed < (400 * 0,7) and (timerStarted == true)){         // Stop recording time for motors going above 70% of absolute max speed
+    if (iAmSpeed < (50 * 0,7) and (timerStarted == true)){         // Stop recording time for motors going above 70% of absolute max speed
         timeNearMaxSpeed += (currentMillis - aboveSeventyTimer);    // when speed goes below 70% and add to total storage variable
         timerStarted = false;
     } // end if
 
-    if (runningHours >= 60000){                                                     // When motor has run for on minute
-        lastMinuteAverageSpeed = (meassureDistance - minuteStartDistance) / 60000;  // Store average speed
+    if ((runningHours >= 60000) || (((currentMillis - runStartedAt) + runningHours) >= 60000)){ 
+        timeNearMaxSpeed += (currentMillis - aboveSeventyTimer);                                                      // When motor has run for on minute
+        lastMinuteAverageSpeed = (meassureDistance - minuteStartDistance) / 60000;//60000;  // Store average speed
         lastMinuteMaxSpeed = maxSpeedLastMinute;                                    // Store maxSpeed
         lastMinuteAboveSeventyPercent = timeNearMaxSpeed;                           // Store time above 70% of absolute maximum speed
         
@@ -778,7 +778,75 @@ void batteryLife(){
         aboveSeventyTimer = 0;                                                      
         maxSpeedLastMinute = 0;
         runningHours = 0;
+        motorRunning = false;
+        timerStarted = false;
+
+        batteryHealth -= round(((lastMinuteAverageSpeed / 10) + (constrain(lastMinuteMaxSpeed - 30, 0, 30) / 10) + (lastMinuteAboveSeventyPercent / 2000)));
+        batteryHealth = constrain(batteryHealth, 0, 100);
     } // end if
 
+    if ((currentMillis >= randomProductionFault) and (productionFaultEffect == false)){
+        batteryHealth -= 50;
+        batteryHealth = constrain(batteryHealth, 0, 100);
+        productionFaultEffect = true;
+        motors.setSpeeds(0,0);
+        display.clear();
+        display.setLayout21x8();
+        display.gotoXY(7,1);
+        display.print(F("WARNING:"));
+        display.gotoXY(4,3);
+        display.print(F("Battery fault"));
+        display.gotoXY(1,5);
+        display.print(F("Battery health ="));
+        display.gotoXY(19,5);
+        display.print(batteryHealth);
+        display.gotoXY(3,7);
+        display.print(F("A = Acknowledge"));
+        buttonA.waitForButton();
+    } // end if
 
+    if ((batteryHealth < 50) and (serviceDone == false)){
+        if(account >= 100){
+            motors.setSpeeds(0,0);
+            display.clear();
+            display.print(F("Battery need service"));
+            display.gotoXY(0,2);
+            display.print(F("Service price 100kr"));
+            display.gotoXY(0,3);
+            display.print(F("Bank account ="));
+            display.gotoXY(16,3);
+            display.print(account);
+            display.gotoXY(0,5);
+            display.print(F("Battery health ="));
+            display.gotoXY(18,5);
+            display.print(batteryHealth);
+            display.gotoXY(0,7);
+            display.print(F("A = Battery Service"));
+            buttonA.waitForButton();
+            account -= 100;
+            serviceDone = true;
+        } // end if
+    } // end if
+
+    if (batteryHealth == 0){
+        motors.setSpeeds(0,0);
+        display.clear();
+        display.print(F("Change battery"));
+        display.gotoXY(0,2);
+        display.print(F("Opperation price 150kr"));
+        display.gotoXY(0,3);
+        display.print(F("Bank account ="));
+        display.gotoXY(16,3);
+        display.print(account);
+        display.gotoXY(0,5);
+        display.print(F("Battery health ="));
+        display.gotoXY(18,5);
+        display.print(batteryHealth);
+        display.gotoXY(0,7);
+        display.print(F("A = Battery Service"));
+        buttonA.waitForButton();
+        account -= 150;
+        batteryHealth = 100;
+        serviceDone = false;
+    } // end if
 } // end void

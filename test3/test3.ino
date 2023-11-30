@@ -46,6 +46,7 @@ unsigned long refreshPreviousMillis = 0;
 long displayTime = 0;
 bool batteryDisplayed = false;
 
+float iAmSpeed = 0;
 // Variables for speedometer
 int16_t previousCountLeft = 0;
 int16_t previousCountRight = 0;
@@ -77,10 +78,27 @@ int missingAmount = 0;
 int account = 100;
 int debit = 0;
 
+// Variables for batteryLife
+int batteryHealth = 100;
+int timesBelowFive = 0;
+int lastMinuteAverageSpeed = 0;
+int lastMinuteMaxSpeed = 0;
+int averageSpeed = 0;
+int maxSpeedLastMinute = 0;
+bool incidentRegistered = false;
+bool timerStarted = false;
+bool motorRunning = false;
+bool serviceDone = false;
+unsigned long timeNearMaxSpeed = 0;
+unsigned long aboveSeventyTimer = 0;
+unsigned long runningHours = 0;
+unsigned long runStartedAt = 0;
+unsigned long minuteStartDistance = 0;
+unsigned long randomProductionFault = 0;
+unsigned long lastMinuteAboveSeventyPercent = 0;
 
 ///////// TEST VARIABLES ////
-int batteryHealth = 2;
-float iAmSpeed = 0;
+
 
 
 
