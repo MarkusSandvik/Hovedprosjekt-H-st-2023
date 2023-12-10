@@ -4,16 +4,7 @@
 
 /////////// NOTES ////////////
 /*
-- Add switchcase for display modes/ buzzer                              | DONE
-- Save batteryLevel in EEPROM                                           |
-- Create SensorNode (miniprosjekt?)                                     | 
-- Add switchcase in softwareBattery for special functions               |
-- Add lineFollower                                                      | DONE
-- Add switchcase in line follower for turning, job etc.                 |
-- Add Random based taxi job                                             | DONE (might need adjustment in payment calculation and random(LOW,HIGH))
-- Fix speed and distance calculation. Use encoders.getCountsAndReset    |
-- Add function to activate / deactivate hiddenfeature                   | DONE
-- Add function to activate emergency charging                           | Skal vi bare aktivere den med tastetrykk på fjernkontrollen?
+Dette er den orginale softwareBatterykoden før forbedring
 */
 
 Zumo32U4OLED display;

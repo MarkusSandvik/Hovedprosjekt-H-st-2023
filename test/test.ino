@@ -5,7 +5,16 @@
 
 /////////// NOTES ////////////
 /*
-DETTE ER DEN "ORGINALE" SOFTWAREBATTERYKODEN FØR VI FORBEDRER DEN
+- Add switchcase for display modes/ buzzer                              | DONE
+- Save batteryLevel in EEPROM                                           | DONE
+- Create SensorNode (miniprosjekt?)                                     | DONE
+- Add switchcase in softwareBattery for special functions               | 
+- Add lineFollower                                                      | DONE
+- Add switchcase in line follower for turning, job etc.                 | 
+- Add Random based taxi job                                             | DONE (might need adjustment in payment calculation and random(LOW,HIGH))
+- Fix speed and distance calculation. Use encoders.getCountsAndReset    | DONE
+- Add function to activate / deactivate hiddenfeature                   | DONE
+- Add function to activate emergency charging                           | Skal vi bare aktivere den med tastetrykk på fjernkontrollen?
 */
 
 Zumo32U4OLED display;
@@ -17,6 +26,7 @@ Zumo32U4ButtonB buttonB;
 Zumo32U4ButtonC buttonC;
 Zumo32U4LineSensors lineSensors;
 Zumo32U4IMU imu;
+Zumo32U4Buzzer buzzer;
 
 // Variables for softwareBattery()
 uint8_t batteryLevel = 100;
@@ -99,6 +109,11 @@ unsigned int lastMinuteAboveSeventyPercent = 0;
 unsigned long runStartedAt = 0;
 unsigned long minuteStartDistance = 0;
 unsigned long randomProductionFault = 0;
+
+// Variables for buzzer()
+unsigned long buzzerMillis;
+const int longBuzzerPeriod = 1500;
+const int shortBuzzerPeriod = 800;
 
 
 ///////// TEST VARIABLES ////
@@ -873,4 +888,12 @@ void batteryLife(){
         timesBelowFive = 0;                         // Value reset when battery is changed
         EEPROM.write(0,100);                        // Value reset when battery is changed
     } // end if
+} // end void
+
+void buzzerSound(){
+  unsigned long startMillis = millis();
+  if(startMillis - buzzerMillis > shortBuzzerPeriod){
+    buzzer.playFrequency(440,200,15);
+    buzzerMillis = startMillis; 
+  } // end if
 } // end void
