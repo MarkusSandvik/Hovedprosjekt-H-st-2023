@@ -5,16 +5,7 @@
 
 /////////// NOTES ////////////
 /*
-- Add switchcase for display modes/ buzzer                              | DONE
-- Save batteryLevel in EEPROM                                           |
-- Create SensorNode (miniprosjekt?)                                     | 
-- Add switchcase in softwareBattery for special functions               |
-- Add lineFollower                                                      | DONE
-- Add switchcase in line follower for turning, job etc.                 |
-- Add Random based taxi job                                             | DONE (might need adjustment in payment calculation and random(LOW,HIGH))
-- Fix speed and distance calculation. Use encoders.getCountsAndReset    |
-- Add function to activate / deactivate hiddenfeature                   | DONE
-- Add function to activate emergency charging                           | Skal vi bare aktivere den med tastetrykk på fjernkontrollen?
+DETTE ER DEN "ORGINALE" SOFTWAREBATTERYKODEN FØR VI FORBEDRER DEN
 */
 
 Zumo32U4OLED display;
@@ -28,10 +19,9 @@ Zumo32U4LineSensors lineSensors;
 Zumo32U4IMU imu;
 
 // Variables for softwareBattery()
-int8_t batteryLevel = 100;
-long lastDistance = 0;
+uint8_t batteryLevel = 100;
+uint8_t timesCharged = 0;
 float consumptionMeasure = 0;
-int8_t timesCharged = 0;
 unsigned long batteryMillis = 0;
 
 //variables for IRremote()
@@ -46,26 +36,25 @@ IRrecv irrecv(RECV_PIN);
 unsigned long irNum;
 unsigned long driveModeController;
 unsigned long taxiModeController;
-/////////////////////////////
 
 // Variables for hiddenFeature()
+bool firstStage = false;
+bool countDownStarted = false;
 bool hiddenActivated = false;
 bool emergencyChargingUsed = false;
 bool emergencyChargeMode = false;
-bool countDownStarted = false;
-bool firstStage = false;
 unsigned long waitForStageTwo = 0;
 unsigned long countDownStart = 0;
-const long countDownInterval = 15000;
+const int countDownInterval = 15000;
 
 // Variables for showBatteryStatus()
+bool batteryDisplayed = false;
 unsigned long previousMillis = 0;
 unsigned long refreshPreviousMillis = 0;
-long displayTime = 0;
-bool batteryDisplayed = false;
+unsigned long displayTime = 0;
 
-// Variables for regneDistanse()
-long meassureDistance = 0;
+// Variables for speedometerAndMeassureDistance()
+unsigned long meassureDistance = 0;
 float iAmSpeed = 0;
 
 // Variables for taxiDriver()
@@ -78,7 +67,7 @@ unsigned long missionDistance = 0;
 unsigned long startDistance = 0;
 unsigned long passengerEnteredMillis = 0;
 unsigned long previousWorkRequest = 0;
-const long freeTimeInterval = 15000;
+const int freeTimeInterval = 15000;
 
 // Variables for followLine()
 unsigned int lineSensorValues[5];
@@ -92,24 +81,24 @@ int account = 100;
 int debit = 0;
 
 // Variables for batteryLife()
-int batteryHealth = 100;
-int timesBelowFive = 0;
-int lastMinuteAverageSpeed = 0;
-int lastMinuteMaxSpeed = 0;
-int averageSpeed = 0;
-int maxSpeedLastMinute = 0;
+uint8_t batteryHealth = 100;
+uint8_t timesBelowFive = 0;
+uint8_t lastMinuteAverageSpeed = 0;
+uint8_t lastMinuteMaxSpeed = 0;
+uint8_t averageSpeed = 0;
+uint8_t maxSpeedLastMinute = 0;
 bool incidentRegistered = false;
 bool timerStarted = false;
 bool motorRunning = false;
 bool serviceDone = false;
 bool productionFaultEffect = false;
-unsigned long timeNearMaxSpeed = 0;
-unsigned long aboveSeventyTimer = 0;
-unsigned long runningHours = 0;
+unsigned int timeNearMaxSpeed = 0;
+unsigned int aboveSeventyTimer = 0;
+unsigned int runningHours = 0;
+unsigned int lastMinuteAboveSeventyPercent = 0;
 unsigned long runStartedAt = 0;
 unsigned long minuteStartDistance = 0;
 unsigned long randomProductionFault = 0;
-unsigned long lastMinuteAboveSeventyPercent = 0;
 
 
 ///////// TEST VARIABLES ////
@@ -135,7 +124,6 @@ void setup(){
     buttonA.waitForButton();
     //EEPROM.write(0,100);
     calibrateLineSensors();
-    display.setLayout21x8();
 } // end setup
 
 void loop(){
@@ -206,7 +194,7 @@ void SpeedometerAndMeassureDistance(){
 }// end voud SpeedometerAndMeassureDistance
 
 void softwareBattery(){
-    long currentMillis = millis();
+    unsigned long currentMillis = millis();
 
     if (currentMillis - batteryMillis > 100){
     batteryMillis = currentMillis;
@@ -221,7 +209,7 @@ void softwareBattery(){
 } // end void
 
 void hiddenFeature(){
-    int currentMillis = millis();
+    unsigned long currentMillis = millis();
     imu.read();
     Serial.println(imu.g.x);
     Serial.println(firstStage);
@@ -260,8 +248,6 @@ void hiddenFeature(){
         display.print(F("HiddenFeature deactivated"));
     } // end if
 
-
-
     if (hiddenActivated == true){ 
 
         // Function to turn on emergencyChargingMode //////////////////////////////////////////////////////////// AMUND LEGG INN KNAPP FRA FJERNKONTROLL////////////////////////////
@@ -270,9 +256,10 @@ void hiddenFeature(){
             emergencyChargingMode = true;
         } // end if
         */
-        
-        lastDistance = meassureDistance;
-        batteryMillis = currentMillis;
+        if (currentMillis - batteryMillis > 100){
+            batteryMillis = currentMillis;
+            consumptionMeasure -= (abs(iAmSpeed)/30); // EKSEMPEL PÅ FUNKSJON, OPPDATER NÅR VI TESTER MED DATA
+        } // end if
         consumptionMeasure -= (abs(iAmSpeed)/30); // EKSEMPEL PÅ FUNKSJON, OPPDATER NÅR VI TESTER MED DATA
 
         if (consumptionMeasure <= -10){
@@ -284,6 +271,7 @@ void hiddenFeature(){
             else{
                 batteryLevel += 2;
             } // end else
+            consumptionMeasure = 0;
             batteryLevel = constrain(batteryLevel, 0, 100);
         } // end else
     } // end if
