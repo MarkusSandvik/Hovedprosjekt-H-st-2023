@@ -80,18 +80,18 @@ unsigned long passengerEnteredMillis = 0;
 unsigned long previousWorkRequest = 0;
 const long freeTimeInterval = 15000;
 
-// Variables for followLine
+// Variables for followLine()
 unsigned int lineSensorValues[5];
 int16_t lastError = 0;
 const uint16_t maxSpeed = 350; //////////////////////// 200
 
-// Variables for charging
+// Variables for charging()
 bool chargingModeEntered = false;
 int missingAmount = 0;
 int account = 100;
 int debit = 0;
 
-// Variables for batteryLife
+// Variables for batteryLife()
 int batteryHealth = 100;
 int timesBelowFive = 0;
 int lastMinuteAverageSpeed = 0;

@@ -27,14 +27,14 @@ Zumo32U4ButtonC buttonC;
 Zumo32U4LineSensors lineSensors;
 Zumo32U4IMU imu;
 
-// Variables for softwareBattery
+// Variables for softwareBattery()
 int8_t batteryLevel = 100;
 long lastDistance = 0;
 float consumptionMeasure = 0;
 int8_t timesCharged = 0;
 unsigned long batteryMillis = 0;
 
-//variables for IR remote
+//variables for IRremote()
 #define code1 3910598400 // 1 på IR fjernkontroll
 #define code2 3860463360 // 2 på IR fjernkontroll
 #define code3 4061003520 // 3 på IR fjernkontroll
@@ -80,18 +80,18 @@ unsigned long passengerEnteredMillis = 0;
 unsigned long previousWorkRequest = 0;
 const long freeTimeInterval = 15000;
 
-// Variables for followLine
+// Variables for followLine()
 unsigned int lineSensorValues[5];
 int16_t lastError = 0;
 const uint16_t maxSpeed = 350; //////////////////////// 200
 
-// Variables for charging
+// Variables for charging()
 bool chargingModeEntered = false;
 int missingAmount = 0;
 int account = 100;
 int debit = 0;
 
-// Variables for batteryLife
+// Variables for batteryLife()
 int batteryHealth = 100;
 int timesBelowFive = 0;
 int lastMinuteAverageSpeed = 0;
@@ -139,12 +139,18 @@ void setup(){
 } // end setup
 
 void loop(){
-    int test = EEPROM.read(0);
-    Serial.println(test);
-    //SpeedometerAndMeassureDistance();
-    //followLine();
-    //batteryLife();
-    //showBatteryStatus();
+    IrRemote();
+    driveMode();
+    SpeedometerAndMeassureDistance();
+    softwareBattery();
+    hiddenFeature();
+    showBatteryStatus();
+    taxiDriver();
+    searchForPassenger();
+    drivePassenger();
+    followLine();
+    chargingMode();
+    batteryLife();
 } // end loop
 
 void IrRemote(){
@@ -152,10 +158,10 @@ void IrRemote(){
 	irNum = IrReceiver.decodedIRData.decodedRawData;
     if((irNum == code1)||(irNum == code2) ||(irNum == code3)){
         driveModeController = irNum;
-    }else if((irNum == yes)||(irNum == no)){
+    } if((irNum == yes)||(irNum == no)){
         taxiModeController = irNum;
     }
-     }
+    }
 IrReceiver.resume();
 }
 
