@@ -280,8 +280,9 @@ void hiddenFeature(){
         countDownStarted = true;
     } // end if
 
-    if (currentMillis - countDownStart > countDownInterval){
-        hiddenActivated = false;
+    // Limits the active time for hiddenFeature to 15 seconds
+    if ((currentMillis - countDownStart > countDownInterval) && (hiddenFeatureActivated == true)) {
+        hiddenFeatureActivated = false;
         firstStage = false;
         ledRed(0);
         display.clear();
@@ -768,6 +769,7 @@ void chargingMode(){
 
 void batteryLife(){
     unsigned long currentMillis = millis();
+    unsigned int oneMinute = 60000;
 
     if ((batteryHealth <= 5) and (incidentRegistered == false)){    // Record times batterylevel is less than or equal to 5%
         timesBelowFive += 1;
@@ -803,13 +805,13 @@ void batteryLife(){
         timerStarted = false;
     } // end if
 
-    if ((runningHours >= 60000) || (((currentMillis - runStartedAt) + runningHours) >= 60000)){ 
-        timeNearMaxSpeed += (currentMillis - aboveSeventyTimer);                                                      // When motor has run for on minute
-        lastMinuteAverageSpeed = (meassureDistance - minuteStartDistance) / 60000;//60000;  // Store average speed
-        lastMinuteMaxSpeed = maxSpeedLastMinute;                                    // Store maxSpeed
-        lastMinuteAboveSeventyPercent = timeNearMaxSpeed;                           // Store time above 70% of absolute maximum speed
+    if ((runningHours >= oneMinute) || (((currentMillis - runStartedAt) + runningHours) >= oneMinute)){ // Runs once each minute
+        timeNearMaxSpeed += (currentMillis - aboveSeventyTimer);                        // When motor has run for on minute
+        lastMinuteAverageSpeed = (meassureDistance - minuteStartDistance) / oneMinute;  // Store average speed
+        lastMinuteMaxSpeed = maxSpeedLastMinute;                                        // Store maxSpeed
+        lastMinuteAboveSeventyPercent = timeNearMaxSpeed;                               // Store time above 70% of absolute maximum speed
         
-        minuteStartDistance = meassureDistance;                                     // Reset variables for next minute running
+        minuteStartDistance = meassureDistance;                                         // Reset variables for next minute running
         aboveSeventyTimer = 0;                                                      
         maxSpeedLastMinute = 0;
         runningHours = 0;
@@ -818,6 +820,8 @@ void batteryLife(){
 
         batteryHealth -= round(((lastMinuteAverageSpeed / 10) + (constrain(lastMinuteMaxSpeed - 30, 0, 30) / 10) + (lastMinuteAboveSeventyPercent / 2000) + timesBelowFive + timesCharged));
         batteryHealth = constrain(batteryHealth, 0, 100);
+
+        updateBatteryHealthEEPROM();
     } // end if
 
     if ((currentMillis >= randomProductionFault) and (productionFaultEffect == false)){
@@ -827,7 +831,9 @@ void batteryLife(){
         motors.setSpeeds(0,0);
         display.clear();
         display.setLayout21x8();
-        display.gotoXY(4,1);
+        display.gotoXY(7,1);
+        display.print(F("WARNING:"));
+        display.gotoXY(4,3);
         display.print(F("Battery fault"));
         display.gotoXY(1,5);
         display.print(F("Battery health ="));
@@ -836,6 +842,7 @@ void batteryLife(){
         display.gotoXY(3,7);
         display.print(F("A = Acknowledge"));
         buttonA.waitForButton();
+        updateBatteryHealthEEPROM();
     } // end if
 
     if ((batteryHealth < 50) and (serviceDone == false)){ // Each battery can only have one Service
@@ -859,6 +866,7 @@ void batteryLife(){
             batteryHealth += 10;
             account -= 100;
             serviceDone = true;
+            updateBatteryHealthEEPROM();
         } // end if
     } // end if
 
@@ -884,6 +892,14 @@ void batteryLife(){
         serviceDone = false;
         timesCharged = 0;                           // Value reset when battery is changed
         timesBelowFive = 0;                         // Value reset when battery is changed
-        EEPROM.write(0,100);                        // Value reset when battery is changed
+        updateBatteryHealthEEPROM();               
     } // end if
+} // end void
+
+void updateBatteryHealthEEPROM(){
+    // Function to reduce times written to EEPROM
+    if (batteryHealth != previousBatteryHealth){
+            EEPROM.write(0,batteryHealth); // To reduce writing to EEPROM the value is only updated if value has changed
+            previousBatteryHealth = batteryHealth;
+        } // end if
 } // end void

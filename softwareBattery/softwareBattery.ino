@@ -120,7 +120,6 @@ void setup(){
     imu.init();
     imu.enableDefault();
     IrReceiver.begin(RECV_PIN, ENABLE_LED_FEEDBACK);
-    batteryHealth = EEPROM.read(0);
     lineSensors.initFiveSensors();
 
     randomProductionFault = random(pow(2,17), pow(2,19));
@@ -131,8 +130,9 @@ void setup(){
     display.gotoXY(0, 1);
     display.print(F("to start"));
     buttonA.waitForButton();
-    //EEPROM.write(0,100);
-    calibrateLineSensors();
+    //EEPROM.write(0,100);          // Uncomment to reset batteryHealth to 100. Run code once, then re-comment to restore EEPROM functionality
+    batteryHealth = EEPROM.read(0); // Sets the batteryHealth to the value stored in the EEPROM
+    calibrateLineSensors();         // Calibrates sensors for lineFollowing
 } // end setup
 
 void loop(){

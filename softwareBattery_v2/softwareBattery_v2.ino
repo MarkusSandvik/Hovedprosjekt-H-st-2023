@@ -62,6 +62,7 @@ int debit = 0;
 
 // Variables for batteryLife()
 int batteryHealth = 100;
+int previousBatteryHealth;
 int timesBelowFive = 0;
 int lastMinuteAverageSpeed = 0;
 int lastMinuteMaxSpeed = 0;
@@ -221,7 +222,12 @@ void hiddenFeatureForCharging(){
     } // end if
 } // end void
 
-void showBatteryStatus(){  
+void showBatteryStatus(){
+    /*This will present different display layouts:
+        Main layout: Speed and distance
+        Battery layout: Battery level, Times charged and Battery Health
+        Warning when battery is low
+    */
     long onInterval;
     long offInterval;
     long refreshInterval;
@@ -253,11 +259,11 @@ void showBatteryStatus(){
         offInterval = 2000;
         refreshInterval = 500;
         if (currentMillis - previousLowBatteryMillis > 15000){
+            display.print(F("Low Battery"));
             previousLowBatteryMillis = currentMillis;
             ledRed(1);
             buzzer.playFrequency(440,200,15);
             display.clear();
-            display.print(F("Low Battery"));
         } // end if
         break;
     case 2:
@@ -266,14 +272,14 @@ void showBatteryStatus(){
         refreshInterval = 500;
         unsigned long currentMillis = millis();
         if (currentMillis - previousLowBatteryMillis > 15000){
-            previousLowBatteryMillis = currentMillis;
+            display.print(F("Low Battery"));
             motors.setSpeeds(0,0);
             ledRed(1);
             buzzer.playFrequency(440,100,15);
             delay(150);                                                                     // kan den løses uten delay? Trenger vi å løse uten delay?
             buzzer.playFrequency(440,100,15);
             display.clear();
-            display.print(F("Low Battery"));
+            previousLowBatteryMillis = currentMillis;
         } // end if
         break;
     case 3:
@@ -309,8 +315,7 @@ void showBatteryStatus(){
 
 
     if (currentMillis - previousMillis >= onInterval){
-        EEPROM.write(0,batteryHealth);
-        batteryHealth = EEPROM.read(0);
+        batteryHealth = EEPROM.read(0);                 // Reads the batteryHealth from the EEPROM
         display.clear();
         display.setLayout21x8();                        // Divide screen into 21 columns and 8 rows
         display.print(F("Battery level"));
@@ -543,6 +548,7 @@ void chargingMode(){
 
 void batteryLife(){
     unsigned long currentMillis = millis();
+    unsigned int oneMinute = 60000;
 
     if ((batteryHealth <= 5) and (incidentRegistered == false)){    // Record times batterylevel is less than or equal to 5%
         timesBelowFive += 1;
@@ -578,13 +584,13 @@ void batteryLife(){
         timerStarted = false;
     } // end if
 
-    if ((runningHours >= 60000) || (((currentMillis - runStartedAt) + runningHours) >= 60000)){ 
-        timeNearMaxSpeed += (currentMillis - aboveSeventyTimer);                                                      // When motor has run for on minute
-        lastMinuteAverageSpeed = (meassureDistance - minuteStartDistance) / 60000;//60000;  // Store average speed
-        lastMinuteMaxSpeed = maxSpeedLastMinute;                                    // Store maxSpeed
-        lastMinuteAboveSeventyPercent = timeNearMaxSpeed;                           // Store time above 70% of absolute maximum speed
+    if ((runningHours >= oneMinute) || (((currentMillis - runStartedAt) + runningHours) >= oneMinute)){ // Runs once each minute
+        timeNearMaxSpeed += (currentMillis - aboveSeventyTimer);                        // When motor has run for on minute
+        lastMinuteAverageSpeed = (meassureDistance - minuteStartDistance) / oneMinute;  // Store average speed
+        lastMinuteMaxSpeed = maxSpeedLastMinute;                                        // Store maxSpeed
+        lastMinuteAboveSeventyPercent = timeNearMaxSpeed;                               // Store time above 70% of absolute maximum speed
         
-        minuteStartDistance = meassureDistance;                                     // Reset variables for next minute running
+        minuteStartDistance = meassureDistance;                                         // Reset variables for next minute running
         aboveSeventyTimer = 0;                                                      
         maxSpeedLastMinute = 0;
         runningHours = 0;
@@ -593,6 +599,8 @@ void batteryLife(){
 
         batteryHealth -= round(((lastMinuteAverageSpeed / 10) + (constrain(lastMinuteMaxSpeed - 30, 0, 30) / 10) + (lastMinuteAboveSeventyPercent / 2000) + timesBelowFive + timesCharged));
         batteryHealth = constrain(batteryHealth, 0, 100);
+
+        updateBatteryHealthEEPROM();
     } // end if
 
     if ((currentMillis >= randomProductionFault) and (productionFaultEffect == false)){
@@ -613,6 +621,7 @@ void batteryLife(){
         display.gotoXY(3,7);
         display.print(F("A = Acknowledge"));
         buttonA.waitForButton();
+        updateBatteryHealthEEPROM();
     } // end if
 
     if ((batteryHealth < 50) and (serviceDone == false)){ // Each battery can only have one Service
@@ -636,6 +645,7 @@ void batteryLife(){
             batteryHealth += 10;
             account -= 100;
             serviceDone = true;
+            updateBatteryHealthEEPROM();
         } // end if
     } // end if
 
@@ -661,6 +671,13 @@ void batteryLife(){
         serviceDone = false;
         timesCharged = 0;                           // Value reset when battery is changed
         timesBelowFive = 0;                         // Value reset when battery is changed
-        EEPROM.write(0,100);                        // Value reset when battery is changed
+        updateBatteryHealthEEPROM();               
     } // end if
+} // end void
+
+void updateBatteryHealthEEPROM(){
+    if (batteryHealth != previousBatteryHealth){
+            EEPROM.write(0,batteryHealth); // To reduce writing to EEPROM the value is only updated if value has changed
+            previousBatteryHealth = batteryHealth;
+        } // end if
 } // end void

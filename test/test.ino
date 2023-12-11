@@ -522,11 +522,17 @@ void drivePassenger(){
         display.print(payment);
         display.gotoXY(18,2);
         display.print(F("kr"));
-        display.gotoXY(0,4);
-        display.print(F("Continue Working?"));
+        display.gotoXY(0,3);
+        display.print(F("Account: "));
+        display.gotoXY(13,3);
+        display.print(account);
+        display.gotoXY(18,3);
+        display.print(F("kr"));
         display.gotoXY(0,5);
-        display.print(F("A = Search for client"));
+        display.print(F("Continue Working?"));
         display.gotoXY(0,6);
+        display.print(F("A = Search for client"));
+        display.gotoXY(0,7);
         display.print(F("B = End work"));
         while ((buttonA.isPressed() == 0) and (buttonB.isPressed() == 0)){
         } // end while
