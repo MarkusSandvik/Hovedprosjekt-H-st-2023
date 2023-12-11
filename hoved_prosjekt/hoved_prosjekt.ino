@@ -44,6 +44,8 @@ unsigned long batteryMillis = 0;
 #define downButton 3927310080 // pil ned på fjernkontrollen
 #define zero 2907897600 //0 på IR fjernkontrollen
 
+#define ok 3208707840 // ok på fjernkontrollen
+
 #define chargingStation 1253111734//dette er koden som gjør at bilen skal stoppe ved ladestasjonen
 #define taxiPassenger  671389550//dette er hva ladestasjonen sender ut hvis det er passasjerer som venter.
 const long RECV_PIN = A4;
@@ -154,15 +156,16 @@ void loop(){
     IrRemote();
     driveMode();
     speedometerAndMeassureDistance();
+    changeSpeed();
     batteryConsumption();
-    //hiddenFeatureForCharging();
+    hiddenFeatureForCharging();
     showBatteryStatus();
+    batteryLife();
     //taxiDriver();
     //searchForPassenger();
     //drivePassenger();
     //followLine();
     //chargingMode();
-    //batteryLife();
 } // end loop
 
 void IrRemote(){
@@ -171,12 +174,14 @@ void IrRemote(){
 	irNum = IrReceiver.decodedIRData.decodedRawData;
     if((irNum == code1)||(irNum == code2) ||(irNum == code3)||(irNum == chargingStation)){
         driveModeController = irNum;
-        }else if((irNum == yes)||(irNum == no)/*||(irNum == zero)*/){
+        }else if((irNum == yes)||(irNum == no)||(irNum == zero)){
             taxiModeController = irNum;
         }else if((irNum == upButton)||(irNum == downButton)){
             changeSpeedController = irNum;
         }else if(irNum == zero){
             passengerFound = true;
+        }else if (irNum == ok){
+            emergencyChargeMode = true;
         }
     }
 IrReceiver.resume();
