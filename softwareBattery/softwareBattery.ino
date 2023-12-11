@@ -27,7 +27,7 @@ Zumo32U4ButtonC buttonC;
 Zumo32U4LineSensors lineSensors;
 Zumo32U4IMU imu;
 
-// Variables for softwareBattery()
+// Variables for batteryConsumption()
 uint8_t batteryLevel = 100;
 uint8_t timesCharged = 0;
 float consumptionMeasure = 0;
@@ -139,7 +139,7 @@ void loop(){
     IrRemote();
     driveMode();
     SpeedometerAndMeassureDistance();
-    softwareBattery();
+    batteryConsumption();
     hiddenFeature();
     showBatteryStatus();
     taxiDriver();
@@ -202,7 +202,7 @@ void SpeedometerAndMeassureDistance(){
       } // end if
 }// end voud SpeedometerAndMeassureDistance
 
-void softwareBattery(){
+void batteryConsumption(){
     unsigned long currentMillis = millis();
 
     if (currentMillis - batteryMillis > 100){

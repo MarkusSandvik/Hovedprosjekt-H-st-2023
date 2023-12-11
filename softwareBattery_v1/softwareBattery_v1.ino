@@ -17,7 +17,7 @@ Zumo32U4ButtonC buttonC;
 Zumo32U4LineSensors lineSensors;
 Zumo32U4IMU imu;
 
-// Variables for softwareBattery()
+// Variables for batteryConsumption()
 int8_t batteryLevel = 100;
 long lastDistance = 0;
 float consumptionMeasure = 0;
@@ -37,6 +37,7 @@ const long countDownInterval = 15000;
 // Variables for showBatteryStatus()
 unsigned long previousMillis = 0;
 unsigned long refreshPreviousMillis = 0;
+unsigned long previousLowBatteryMillis = 0;
 long displayTime = 0;
 bool batteryDisplayed = false;
 
@@ -210,6 +211,7 @@ void showBatteryStatus(){
     long offInterval;
     long refreshInterval;
     uint8_t batteryCase;
+    unsigned long currentMillis = millis();
 
     if(batteryLevel > 100){
         batteryCase = 0;
@@ -234,13 +236,29 @@ void showBatteryStatus(){
         onInterval = 5000;
         offInterval = 2000;
         refreshInterval = 500;
+        if (currentMillis - previousLowBatteryMillis > 15000){
+            previousLowBatteryMillis = currentMillis;
+            ledRed(1);
+            buzzer.playFrequency(440,200,15);
+            display.clear();
+            display.print(F("Low Battery"));
+        } // end if
         break;
     case 2:
         onInterval = 2000;
         offInterval = 1000;
         refreshInterval = 500;
-        //batteryCase2(); skal være når batteriet er helt utladet. Her må vi kunne legge inn en hidden feature som
-        //gjør at vi kan få litt strøm slik at den kommer seg til ladestasjonen.
+        unsigned long currentMillis = millis();
+        if (currentMillis - previousLowBatteryMillis > 15000){
+            previousLowBatteryMillis = currentMillis;
+            motors.setSpeeds(0,0);
+            ledRed(1);
+            buzzer.playFrequency(440,100,15);
+            delay(150);                                                                     // kan den løses uten delay? Trenger vi å løse uten delay?
+            buzzer.playFrequency(440,100,15);
+            display.clear();
+            display.print(F("Low Battery"));
+        } // end if
         break;
     case 3:
         //batteryCase2(); skal være når batteriet er helt utladet. Her må vi kunne legge inn en hidden feature som
@@ -253,8 +271,6 @@ void showBatteryStatus(){
         refreshInterval = 500;
         break;
     }
-
-    unsigned long currentMillis = millis();
 
     if (batteryDisplayed == false){
         if (currentMillis - refreshPreviousMillis >= refreshInterval){
@@ -275,6 +291,7 @@ void showBatteryStatus(){
         } // end if
     } // end if
 
+
     if (currentMillis - previousMillis >= onInterval){
         EEPROM.write(0,batteryHealth);
         batteryHealth = EEPROM.read(0);
@@ -294,7 +311,7 @@ void showBatteryStatus(){
         if(batteryLevel < 10){
             display.gotoXY(0,6);
             display.print("Please recharge!");
-        } // end if
+        }
         previousMillis = currentMillis;
         displayTime = currentMillis;
         batteryDisplayed = true;                        // To make the next if sentence only run once after this text have been ran
