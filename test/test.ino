@@ -26,7 +26,6 @@ Zumo32U4ButtonB buttonB;
 Zumo32U4ButtonC buttonC;
 Zumo32U4LineSensors lineSensors;
 Zumo32U4IMU imu;
-Zumo32U4Buzzer buzzer;
 
 // Variables for softwareBattery()
 uint8_t batteryLevel = 100;
@@ -62,6 +61,7 @@ bool batteryDisplayed = false;
 unsigned long previousMillis = 0;
 unsigned long refreshPreviousMillis = 0;
 unsigned long displayTime = 0;
+unsigned long previousLowBatteryMillis = 0;
 
 // Variables for speedometerAndMeassureDistance()
 unsigned long meassureDistance = 0;
@@ -238,7 +238,7 @@ void hiddenFeature(){
     if (firstStage == true){
         if (imu.g.y > 15000){
             hiddenActivated = true;
-            ledRed(1);
+            ledGreen(1);
             display.clear();
             display.print(F("Hidden feature"));
         } // end if
@@ -257,7 +257,7 @@ void hiddenFeature(){
     if (currentMillis - countDownStart > countDownInterval){
         hiddenActivated = false;
         firstStage = false;
-        ledRed(0);
+        ledGreen(0);
         display.clear();
         display.setLayout21x8();
         display.print(F("HiddenFeature deactivated"));
@@ -297,6 +297,7 @@ void showBatteryStatus(){
     long offInterval;
     long refreshInterval;
     uint8_t batteryCase;
+    unsigned long currentMillis = millis();
 
     if(batteryLevel > 100){
         batteryCase = 0;
@@ -321,13 +322,29 @@ void showBatteryStatus(){
         onInterval = 5000;
         offInterval = 2000;
         refreshInterval = 500;
+        if (currentMillis - previousLowBatteryMillis > 15000){
+            previousLowBatteryMillis = currentMillis;
+            ledRed(1);
+            buzzer.playFrequency(440,200,15);
+            display.clear();
+            display.print(F("Low Battery"));
+        } // end if
         break;
     case 2:
         onInterval = 2000;
         offInterval = 1000;
         refreshInterval = 500;
-        //batteryCase2(); skal være når batteriet er helt utladet. Her må vi kunne legge inn en hidden feature som
-        //gjør at vi kan få litt strøm slik at den kommer seg til ladestasjonen.
+        unsigned long currentMillis = millis();
+        if (currentMillis - previousLowBatteryMillis > 15000){
+            previousLowBatteryMillis = currentMillis;
+            motors.setSpeeds(0,0);
+            ledRed(1);
+            buzzer.playFrequency(440,100,15);
+            delay(150);                                                                     // kan den løses uten delay? Trenger vi å løse uten delay?
+            buzzer.playFrequency(440,100,15);
+            display.clear();
+            display.print(F("Low Battery"));
+        } // end if
         break;
     case 3:
         //batteryCase2(); skal være når batteriet er helt utladet. Her må vi kunne legge inn en hidden feature som
@@ -340,12 +357,6 @@ void showBatteryStatus(){
         refreshInterval = 500;
         break;
     }
-
-
-
-    unsigned long currentMillis = millis();
-
-
 
     if (batteryDisplayed == false){
         if (currentMillis - refreshPreviousMillis >= refreshInterval){
@@ -890,10 +901,36 @@ void batteryLife(){
     } // end if
 } // end void
 
+void lowBattery(){
+    unsigned long currentMillis = millis();
+    if (currentMillis - previousLowBatteryMillis > 15000){
+        previousLowBatteryMillis = currentMillis;
+        ledRed(1);
+        buzzer.playFrequency(440,200,15);
+        display.clear();
+        display.print(F("Low Battery"));
+    } // end if
+} // end void
+
+void veryLowBattery(){
+    unsigned long currentMillis = millis();
+    if (currentMillis - previousLowBatteryMillis > 15000){
+        previousLowBatteryMillis = currentMillis;
+        motors.setSpeeds(0,0);
+        ledRed(1);
+        buzzer.playFrequency(440,100,15);
+        delay(150);                                                                     // kan den løses uten delay? Trenger vi å løse uten delay?
+        buzzer.playFrequency(440,100,15);
+        display.clear();
+        display.print(F("Low Battery"));
+    } // end if
+} // end void
+
 void buzzerSound(){
   unsigned long startMillis = millis();
   if(startMillis - buzzerMillis > shortBuzzerPeriod){
     buzzer.playFrequency(440,200,15);
     buzzerMillis = startMillis; 
+    
   } // end if
 } // end void
