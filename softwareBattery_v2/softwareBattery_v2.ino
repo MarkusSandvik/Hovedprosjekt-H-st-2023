@@ -194,7 +194,7 @@ void hiddenFeatureForCharging(){
 
 
 
-    if (hiddenActivated == true){ 
+    if (hiddenFeatureActivated == true){ 
 
         // Function to turn on emergencyChargingMode //////////////////////////////////////////////////////////// AMUND LEGG INN KNAPP FRA FJERNKONTROLL////////////////////////////
         /*
