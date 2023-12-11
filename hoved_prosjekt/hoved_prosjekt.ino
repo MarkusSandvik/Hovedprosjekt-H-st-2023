@@ -304,12 +304,6 @@ void hiddenFeatureForCharging(){
 
     if (hiddenFeatureActivated == true){ 
 
-        // Function to turn on emergencyChargingMode //////////////////////////////////////////////////////////// AMUND LEGG INN KNAPP FRA FJERNKONTROLL////////////////////////////
-        /*
-        if (AMUND LEGG INN KNAPPETRYKK){
-            emergencyChargingMode = true;
-        } // end if
-        */
         if (currentMillis - batteryMillis > 100){
             batteryMillis = currentMillis;
             consumptionMeasure -= (abs(iAmSpeed)/30); // EKSEMPEL PÅ FUNKSJON, OPPDATER NÅR VI TESTER MED DATA
@@ -690,6 +684,7 @@ void chargingMode(){
             if (buttonA.isPressed() == 1){
                 debit += missingAmount;
                 account = 0;
+                batteryLevel += 10;
                 display.clear();
                 display.print(F("Wait while charging"));
                 batteryLevel = constrain(batteryLevel, 0, 100);
@@ -734,6 +729,7 @@ void chargingMode(){
             if (buttonA.isPressed() == 1){
                 debit += missingAmount;
                 account = 0;
+                batteryLevel += 50;
                 display.clear();
                 display.print(F("Wait while charging"));
                 batteryLevel = constrain(batteryLevel, 0, 100);
@@ -780,6 +776,7 @@ void chargingMode(){
             if (buttonA.isPressed() == 1){
                 debit += missingAmount;
                 account = 0;
+                batteryLevel += percentageUntilFull;
                 display.clear();
                 display.print(F("Wait while charging"));
                 batteryLevel = constrain(batteryLevel, 0, 100);
