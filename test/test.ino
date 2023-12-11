@@ -126,7 +126,6 @@ void setup(){
     imu.init();
     imu.enableDefault();
     IrReceiver.begin(RECV_PIN, ENABLE_LED_FEEDBACK);
-    batteryHealth = EEPROM.read(0);
     lineSensors.initFiveSensors();
 
     randomProductionFault = random(pow(2,17), pow(2,19));
@@ -138,6 +137,7 @@ void setup(){
     display.print(F("to start"));
     buttonA.waitForButton();
     //EEPROM.write(0,100);
+    batteryHealth = EEPROM.read(0);
     calibrateLineSensors();
 } // end setup
 
@@ -637,6 +637,8 @@ void chargingMode(){
         display.print(F("Debit account = "));
         display.gotoXY(16, 7);
         display.print(debit);
+        while ((buttonA.isPressed() == 0) and (buttonB.isPressed() == 0) and (buttonC.ispressed()== 0){
+        } // end while
     } // end if
 
     if (buttonA.isPressed() == 1){

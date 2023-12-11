@@ -33,8 +33,8 @@ float consumptionMeasure = 0;
 int8_t timesCharged = 0;
 unsigned long batteryMillis = 0;
 
-// Variables for hiddenFeature()
-bool hiddenActivated = false;
+// Variables for hiddenFeatureForCharging()
+bool hiddenFeatureActivated = false;
 bool emergencyChargingUsed = false;
 bool emergencyChargeMode = false;
 bool countDownStarted = false;
@@ -54,7 +54,7 @@ bool batteryDisplayed = false;
 long meassureDistance = 0;
 float iAmSpeed = 0;
 
-// Variables for charging()
+// Variables for chargingMode()
 bool chargingModeEntered = false;
 int missingAmount = 0;
 int account = 100;
@@ -105,20 +105,21 @@ void setup(){
 } // end setup
 
 void loop(){
-    SpeedometerAndMeassureDistance();
+    speedometerAndMeassureDistance();
     batteryConsumption();
-    hiddenFeature();
+    hiddenFeatureForCharging();
     showBatteryStatus();
     chargingMode();
     batteryLife();
 } // end loop
 
 void batteryConsumption(){
+    // This functions reduces the batteryLevel based on speed
     long currentMillis = millis();
 
     if (currentMillis - batteryMillis > 100){
     batteryMillis = currentMillis;
-    consumptionMeasure += (abs(iAmSpeed)/30); // EKSEMPEL PÅ FUNKSJON, OPPDATER NÅR VI TESTER MED DATA
+    consumptionMeasure += (abs(iAmSpeed)/30); // The distance measurement is based on the speed measurement, and we therefore did not use it in the calculation
     } // end if
 
     if (consumptionMeasure >= 10){
@@ -128,8 +129,9 @@ void batteryConsumption(){
     batteryLevel = constrain(batteryLevel, 0, 100);
 } // end void
 
-void SpeedometerAndMeassureDistance(){
-  static uint8_t lastDisplayTime;
+void speedometerAndMeassureDistance(){
+    // This function calculates the current speed and increse the distance, and stores them in global variables
+    static uint8_t lastDisplayTime;
     if ((uint8_t)(millis() - lastDisplayTime) >= 200)
     {
         long countsLeft = encoders.getCountsAndResetLeft();
@@ -140,44 +142,48 @@ void SpeedometerAndMeassureDistance(){
         
         float meters = avrage/distance*oneRound*5;
         iAmSpeed = meters;
-        meassureDistance +=abs(meters)*0.2;
+        meassureDistance +=abs(meters)*0.2; // Use the absolute message to increase distance while driving backwards
         lastDisplayTime = millis();
       } // end if
 }// end voud SpeedometerAndMeassureDistance
 
-void hiddenFeature(){
+void hiddenFeatureForCharging(){
+    // Function to activate a "secret" mode where driving backwards will increase the battery level. 
     int currentMillis = millis();
     imu.read();
-    Serial.println(imu.g.x);
-    Serial.println(firstStage);
 
-    // Function to turn on hiddenActivated
-    if ((imu.g.x > 15000) and (firstStage == false)){
+    // Functions to turn on hiddenActivated
+    //To activate the first stage, tilt the car quicly to with the clock around the x-axis (looking at the car from behind)
+    if ((imu.g.x > 15000) and (firstStage == false)){ 
         firstStage = true;
         waitForStageTwo = currentMillis;
     } // end if
 
-    if (firstStage == true){
+    // To activate hiddenFeature firstStep must be active, and then the car must be tilted quickly forward
+    if (firstStage == true){    
         if (imu.g.y > 15000){
-            hiddenActivated = true;
+            hiddenFeatureActivated = true;
             ledRed(1);
             display.clear();
             display.print(F("Hidden feature"));
         } // end if
     } // end if
 
+    // Limits the time from first stage to second stage to maximum 5 seconds
     if ((currentMillis - waitForStageTwo > 5000) and (firstStage == true)){
         firstStage = false;
     } // end if
+    // End of functions to turn on hiddenActivated
 
     // Function to turn off hiddenActivated
-    if ((hiddenActivated == true) && (countDownStarted == false)){
-        countDownStart = currentMillis;
+    if ((hiddenFeatureActivated == true) && (countDownStarted == false)){
+        countDownStart = currentMillis; 
         countDownStarted = true;
     } // end if
 
-    if (currentMillis - countDownStart > countDownInterval){
-        hiddenActivated = false;
+    // Limits the active time for hiddenFeature to 15 seconds
+    if ((currentMillis - countDownStart > countDownInterval) && (hiddenFeatureActivated == true)) {
+        hiddenFeatureActivated = false;
         firstStage = false;
         ledRed(0);
         display.clear();
@@ -201,6 +207,7 @@ void hiddenFeature(){
         consumptionMeasure -= (abs(iAmSpeed)/30); // EKSEMPEL PÅ FUNKSJON, OPPDATER NÅR VI TESTER MED DATA
 
         if (consumptionMeasure <= -10){
+            // Emergency charging regains ten times the amount of charging, but can only be used once
             if ((emergencyChargeMode == true) && (emergencyChargingUsed = false)){
                 batteryLevel += 20;
                 emergencyChargingUsed = true;
@@ -239,6 +246,7 @@ void showBatteryStatus(){
         onInterval = 10000;
         offInterval = 2000;
         refreshInterval = 500;
+        ledRed(0);
         break;
     case 1:
         onInterval = 5000;
@@ -278,7 +286,7 @@ void showBatteryStatus(){
         offInterval = 2000;
         refreshInterval = 500;
         break;
-    }
+    } // end switch
 
     if (batteryDisplayed == false){
         if (currentMillis - refreshPreviousMillis >= refreshInterval){

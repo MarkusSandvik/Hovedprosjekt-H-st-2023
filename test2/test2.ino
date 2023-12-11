@@ -15,6 +15,7 @@
 - Fix speed and distance calculation. Use encoders.getCountsAndReset    | DONE
 - Add function to activate / deactivate hiddenfeature                   | DONE
 - Add function to activate emergency charging                           | Skal vi bare aktivere den med tastetrykk på fjernkontrollen?
+- testestes
 */
 
 Zumo32U4OLED display;
@@ -600,9 +601,11 @@ void chargingMode(){
         display.gotoXY(0,7);
         display.print(F("Press A to exit"));
         buttonA.waitForButton();
+        driveModeController = code1;
         chargingModeEntered = false;
     } // end if
-                       // Just a idea, test for reliability
+
+    else{             // Just a idea, test for reliability
         display.clear();
         display.setLayout21x8();
         display.print(F("Charging mode"));
@@ -625,8 +628,8 @@ void chargingMode(){
         display.gotoXY(16, 7);
         display.print(debit);
         while((buttonA.isPressed() == 0) and (buttonB.isPressed() == 0) and (buttonC.isPressed() == 0)){
-
         }//end while
+    } // end else
 
     if (buttonA.isPressed() == 1){
         if (account >= 10){
@@ -636,7 +639,6 @@ void chargingMode(){
             display.print(F("Wait while charging"));
             batteryLevel = constrain(batteryLevel, 0, 100);
             delay(1000);
-            driveModeController = code1;
         } // end if
         
         else{
@@ -664,12 +666,11 @@ void chargingMode(){
                 display.print(F("Wait while charging"));
                 batteryLevel = constrain(batteryLevel, 0, 100);
                 delay(1000);
-                chargingMode();
             } // end if
 
             if (buttonB.isPressed() == 1){
                 chargingModeEntered = false;
-                // QUIT CHARGING MODE, Integrate with driving switch case?
+                driveModeController = code1;
             } // end if
         } // end else
     } // end if
@@ -709,12 +710,11 @@ void chargingMode(){
                 display.print(F("Wait while charging"));
                 batteryLevel = constrain(batteryLevel, 0, 100);
                 delay(5000);
-                chargingMode();
             } // end if
 
             if (buttonB.isPressed() == 1){
                 chargingModeEntered = false;
-                // QUIT CHARGING MODE, Integrate with driving switch case?
+                driveModeController = code1;
             } // end if
         } // end else
     } // end if
@@ -756,12 +756,11 @@ void chargingMode(){
                 display.print(F("Wait while charging"));
                 batteryLevel = constrain(batteryLevel, 0, 100);
                 delay(chargingTime);
-                chargingMode();
             } // end if
 
             if (buttonB.isPressed() == 1){
                 chargingModeEntered = false;
-                // QUIT CHARGING MODE, Integrate with driving switch case?
+                driveModeController = code1;
             } // end if
         } // end else
     } // end if
