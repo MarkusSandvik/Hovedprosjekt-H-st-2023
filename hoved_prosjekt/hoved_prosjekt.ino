@@ -170,22 +170,26 @@ void loop(){
 
 void IrRemote(){
 	if(IrReceiver.decode()){
-    
-	irNum = IrReceiver.decodedIRData.decodedRawData;
-    if((irNum == code1)||(irNum == code2) ||(irNum == code3)||(irNum == chargingStation)){
-        driveModeController = irNum;
-        }else if((irNum == yes)||(irNum == no)||(irNum == zero)){
+        irNum = IrReceiver.decodedIRData.decodedRawData;
+        if((irNum == code1)||(irNum == code2) ||(irNum == code3)||(irNum == chargingStation)){
+            driveModeController = irNum;
+        } // end if
+        else if((irNum == yes)||(irNum == no)||(irNum == zero)){
             taxiModeController = irNum;
-        }else if((irNum == upButton)||(irNum == downButton)){
+        } // end else if
+        else if((irNum == upButton)||(irNum == downButton)){
             changeSpeedController = irNum;
-        }else if(irNum == zero){
+        } // end else if
+        else if(irNum == zero){
             passengerFound = true;
-        }else if (irNum == ok){
+        } // end else if
+        else if (irNum == ok){
             emergencyChargeMode = true;
-        }
-    }
-IrReceiver.resume();
-}
+        } // end else if
+    } // end if
+
+    IrReceiver.resume();
+} // end void
 
 void driveMode(){
     Serial.println(driveModeController);
@@ -210,8 +214,8 @@ void driveMode(){
         chargingStationDetected = true;
     default:
         break;
-    }
-}
+    } // end switch
+} // end void
 
 void speedometerAndMeassureDistance(){
     // This function calculates the current speed and increse the distance, and stores them in global variables
