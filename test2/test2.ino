@@ -58,7 +58,7 @@ unsigned long changeSpeedController;
 // Variables for hiddenFeature()
 bool firstStage = false;
 bool countDownStarted = false;
-bool hiddenActivated = false;
+bool hiddenFeatureActivated = false;
 bool emergencyChargingUsed = false;
 bool emergencyChargeMode = false;
 unsigned long waitForStageTwo = 0;
@@ -101,6 +101,7 @@ int debit = 0;
 
 // Variables for batteryLife()
 uint8_t batteryHealth = 100;
+uint8_t previousBatteryHealth;
 uint8_t timesBelowFive = 0;
 uint8_t lastMinuteAverageSpeed = 0;
 uint8_t lastMinuteMaxSpeed = 0;
@@ -255,7 +256,7 @@ void hiddenFeature(){
     Serial.println(imu.g.x);
     Serial.println(firstStage);
 
-    // Function to turn on hiddenActivated
+    // Function to turn on hiddenFeatureActivated
     if ((imu.g.x > 15000) and (firstStage == false)){
         firstStage = true;
         waitForStageTwo = currentMillis;
@@ -263,7 +264,7 @@ void hiddenFeature(){
 
     if (firstStage == true){
         if (imu.g.y > 15000){
-            hiddenActivated = true;
+            hiddenFeatureActivated = true;
             ledRed(1);
             display.clear();
             display.print(F("Hidden feature"));
@@ -274,8 +275,8 @@ void hiddenFeature(){
         firstStage = false;
     } // end if
 
-    // Function to turn off hiddenActivated
-    if ((hiddenActivated == true) && (countDownStarted == false)){
+    // Function to turn off hiddenFeatureActivated
+    if ((hiddenFeatureActivated == true) && (countDownStarted == false)){
         countDownStart = currentMillis;
         countDownStarted = true;
     } // end if
@@ -290,7 +291,7 @@ void hiddenFeature(){
         display.print(F("HiddenFeature deactivated"));
     } // end if
 
-    if (hiddenActivated == true){ 
+    if (hiddenFeatureActivated == true){ 
 
         // Function to turn on emergencyChargingMode //////////////////////////////////////////////////////////// AMUND LEGG INN KNAPP FRA FJERNKONTROLL////////////////////////////
         /*
