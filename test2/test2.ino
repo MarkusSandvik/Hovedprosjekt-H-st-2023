@@ -1,17 +1,18 @@
 #include <Wire.h>
 #include <Zumo32U4.h>
+#include <IRremote.h>
 #include <EEPROM.h>
 
 /////////// NOTES ////////////
 /*
 - Add switchcase for display modes/ buzzer                              | DONE
-- Save batteryLevel in EEPROM                                           |
-- Create SensorNode (miniprosjekt?)                                     | 
-- Add switchcase in softwareBattery for special functions               |
+- Save batteryLevel in EEPROM                                           | DONE
+- Create SensorNode (miniprosjekt?)                                     | DONE
+- Add switchcase in softwareBattery for special functions               | 
 - Add lineFollower                                                      | DONE
-- Add switchcase in line follower for turning, job etc.                 |
+- Add switchcase in line follower for turning, job etc.                 | 
 - Add Random based taxi job                                             | DONE (might need adjustment in payment calculation and random(LOW,HIGH))
-- Fix speed and distance calculation. Use encoders.getCountsAndReset    |
+- Fix speed and distance calculation. Use encoders.getCountsAndReset    | DONE
 - Add function to activate / deactivate hiddenfeature                   | DONE
 - Add function to activate emergency charging                           | Skal vi bare aktivere den med tastetrykk på fjernkontrollen?
 */
@@ -26,60 +27,101 @@ Zumo32U4ButtonC buttonC;
 Zumo32U4LineSensors lineSensors;
 Zumo32U4IMU imu;
 
-// Variables for softwareBattery()
-int8_t batteryLevel = 100;
-long lastDistance = 0;
+// Variables for batteryConsumption()
+uint8_t batteryLevel = 100;
+uint8_t timesCharged = 0;
 float consumptionMeasure = 0;
-int8_t timesCharged = 0;
 unsigned long batteryMillis = 0;
 
+//variables for IR remote
+#define code1 3910598400 // 1 på IR fjernkontroll
+#define code2 3860463360 // 2 på IR fjernkontroll
+#define code3 4061003520 // 3 på IR fjernkontroll
+#define yes 3175284480 // * på IR fjernkontroll
+#define no 3041591040 // # på IR fjernkontrollen
+#define upButton 3108437760 // pil opp på fjernkontrollen
+#define downButton 3927310080 // pil ned på fjernkontrollen
+#define zero 2907897600 //0 på IR fjernkontrollen
+
+#define chargingStation 1253111734//dette er koden som gjør at bilen skal stoppe ved ladestasjonen
+#define taxiPassenger  671389550//dette er hva ladestasjonen sender ut hvis det er passasjerer som venter.
+const long RECV_PIN = A4;
+IRrecv irrecv(RECV_PIN);
+unsigned long irNum;
+unsigned long driveModeController;
+unsigned long taxiModeController;
+unsigned long changeSpeedController;
+/////////////////////////////
+
+
 // Variables for hiddenFeature()
+bool firstStage = false;
+bool countDownStarted = false;
 bool hiddenActivated = false;
 bool emergencyChargingUsed = false;
 bool emergencyChargeMode = false;
-bool countDownStarted = false;
-bool firstStage = false;
 unsigned long waitForStageTwo = 0;
 unsigned long countDownStart = 0;
-const long countDownInterval = 15000;
+const int countDownInterval = 15000;
 
 // Variables for showBatteryStatus()
+bool batteryDisplayed = false;
 unsigned long previousMillis = 0;
 unsigned long refreshPreviousMillis = 0;
-long displayTime = 0;
-bool batteryDisplayed = false;
+unsigned long displayTime = 0;
 
 // Variables for speedometerAndMeassureDistance()
-long meassureDistance = 0;
+unsigned long meassureDistance = 0;
 float iAmSpeed = 0;
 
+// Variables for taxiDriver()
+int workCase = 0;
+bool passengerFound = false;
+bool onDuty = false;
+unsigned long searchTime = 0;
+unsigned long missionStart = 0;
+unsigned long missionDistance = 0;
+unsigned long startDistance = 0;
+unsigned long passengerEnteredMillis = 0;
+unsigned long previousWorkRequest = 0;
+const int freeTimeInterval = 15000;
+
+// Variables for followLine()
+unsigned int lineSensorValues[5];
+int16_t lastError = 0;
+int maxSpeed = 200; //////////////////////// 200
+
 // Variables for charging()
+bool chargingStationDetected = false;
 bool chargingModeEntered = false;
 int missingAmount = 0;
 int account = 100;
 int debit = 0;
 
 // Variables for batteryLife()
-int batteryHealth = 100;
-int timesBelowFive = 0;
-int lastMinuteAverageSpeed = 0;
-int lastMinuteMaxSpeed = 0;
-int averageSpeed = 0;
-int maxSpeedLastMinute = 0;
+uint8_t batteryHealth = 100;
+uint8_t timesBelowFive = 0;
+uint8_t lastMinuteAverageSpeed = 0;
+uint8_t lastMinuteMaxSpeed = 0;
+uint8_t averageSpeed = 0;
+uint8_t maxSpeedLastMinute = 0;
 bool incidentRegistered = false;
 bool timerStarted = false;
 bool motorRunning = false;
 bool serviceDone = false;
 bool productionFaultEffect = false;
-unsigned long timeNearMaxSpeed = 0;
-unsigned long aboveSeventyTimer = 0;
-unsigned long runningHours = 0;
+unsigned int timeNearMaxSpeed = 0;
+unsigned int aboveSeventyTimer = 0;
+unsigned int runningHours = 0;
+unsigned int lastMinuteAboveSeventyPercent = 0;
 unsigned long runStartedAt = 0;
 unsigned long minuteStartDistance = 0;
 unsigned long randomProductionFault = 0;
-unsigned long lastMinuteAboveSeventyPercent = 0;
 
 
+//Variables for buzzer
+unsigned long buzzerMillis;
+unsigned long buzzerPeriod;
 ///////// TEST VARIABLES ////
 
 
@@ -89,7 +131,9 @@ void setup(){
     Wire.begin();
     imu.init();
     imu.enableDefault();
+    IrReceiver.begin(RECV_PIN, ENABLE_LED_FEEDBACK);
     batteryHealth = EEPROM.read(0);
+    lineSensors.initFiveSensors();
 
     randomProductionFault = random(pow(2,17), pow(2,19));
 
@@ -100,32 +144,66 @@ void setup(){
     display.print(F("to start"));
     buttonA.waitForButton();
     //EEPROM.write(0,100);
-    display.setLayout21x8();
+    calibrateLineSensors();
 } // end setup
 
 void loop(){
+    IrRemote();
+    driveMode();
     SpeedometerAndMeassureDistance();
-    softwareBattery();
-    hiddenFeature();
+    batteryConsumption();
+    //hiddenFeature();
     showBatteryStatus();
-    chargingMode();
-    batteryLife();
+    //taxiDriver();
+    //searchForPassenger();
+    //drivePassenger();
+    //followLine();
+    //chargingMode();
+    //batteryLife();
 } // end loop
 
-void softwareBattery(){
-    long currentMillis = millis();
+void IrRemote(){
+	if(IrReceiver.decode()){
+    
+	irNum = IrReceiver.decodedIRData.decodedRawData;
+    if((irNum == code1)||(irNum == code2) ||(irNum == code3)||(irNum == chargingStation)){
+        driveModeController = irNum;
+        }else if((irNum == yes)||(irNum == no)/*||(irNum == zero)*/){
+            taxiModeController = irNum;
+        }else if((irNum == upButton)||(irNum == downButton)){
+            changeSpeedController = irNum;
+        }else if(irNum == zero){
+            passengerFound = true;
+        }
+    }
+IrReceiver.resume();
+}
 
-    if (currentMillis - batteryMillis > 100){
-    batteryMillis = currentMillis;
-    consumptionMeasure += (abs(iAmSpeed)/30); // EKSEMPEL PÅ FUNKSJON, OPPDATER NÅR VI TESTER MED DATA
-    } // end if
+void driveMode(){
+    Serial.println(driveModeController);
+    switch (driveModeController)
+    {
+    case code1:
+        followLine();
+        break;
 
-    if (consumptionMeasure >= 10){
-        batteryLevel -= 1;
-        consumptionMeasure = 0;
-    } // end if
-    batteryLevel = constrain(batteryLevel, 0, 100);
-} // end void
+    case code2:
+        taxiDriver();
+        followLine();
+        break;
+
+    case code3:
+        motors.setSpeeds(0,0);
+        break;
+
+    case chargingStation:
+        motors.setSpeeds(0,0);
+        chargingMode();
+        chargingStationDetected = true;
+    default:
+        break;
+    }
+}
 
 void SpeedometerAndMeassureDistance(){
   static uint8_t lastDisplayTime;
@@ -145,8 +223,33 @@ void SpeedometerAndMeassureDistance(){
       } // end if
 }// end voud SpeedometerAndMeassureDistance
 
+void changeSpeed(){
+    constrain(maxSpeed, 0, 400);
+    if(changeSpeedController == upButton){
+        maxSpeed += 20;
+    }else if(changeSpeedController == downButton){
+        maxSpeed -= 20;
+    }
+    changeSpeedController = 0;
+}
+
+void batteryConsumption(){
+    unsigned long currentMillis = millis();
+
+    if (currentMillis - batteryMillis > 100){
+    batteryMillis = currentMillis;
+    consumptionMeasure += (abs(iAmSpeed)/30); // EKSEMPEL PÅ FUNKSJON, OPPDATER NÅR VI TESTER MED DATA
+    } // end if
+
+    if (consumptionMeasure >= 10){
+        batteryLevel -= 1;
+        consumptionMeasure = 0;
+    } // end if
+    batteryLevel = constrain(batteryLevel, 0, 100);
+} // end void
+
 void hiddenFeature(){
-    int currentMillis = millis();
+    unsigned long currentMillis = millis();
     imu.read();
     Serial.println(imu.g.x);
     Serial.println(firstStage);
@@ -185,8 +288,6 @@ void hiddenFeature(){
         display.print(F("HiddenFeature deactivated"));
     } // end if
 
-
-
     if (hiddenActivated == true){ 
 
         // Function to turn on emergencyChargingMode //////////////////////////////////////////////////////////// AMUND LEGG INN KNAPP FRA FJERNKONTROLL////////////////////////////
@@ -195,9 +296,10 @@ void hiddenFeature(){
             emergencyChargingMode = true;
         } // end if
         */
-        
-        lastDistance = meassureDistance;
-        batteryMillis = currentMillis;
+        if (currentMillis - batteryMillis > 100){
+            batteryMillis = currentMillis;
+            consumptionMeasure -= (abs(iAmSpeed)/30); // EKSEMPEL PÅ FUNKSJON, OPPDATER NÅR VI TESTER MED DATA
+        } // end if
         consumptionMeasure -= (abs(iAmSpeed)/30); // EKSEMPEL PÅ FUNKSJON, OPPDATER NÅR VI TESTER MED DATA
 
         if (consumptionMeasure <= -10){
@@ -209,6 +311,7 @@ void hiddenFeature(){
             else{
                 batteryLevel += 2;
             } // end else
+            consumptionMeasure = 0;
             batteryLevel = constrain(batteryLevel, 0, 100);
         } // end else
     } // end if
@@ -263,7 +366,11 @@ void showBatteryStatus(){
         break;
     }
 
+
+
     unsigned long currentMillis = millis();
+
+
 
     if (batteryDisplayed == false){
         if (currentMillis - refreshPreviousMillis >= refreshInterval){
@@ -284,6 +391,7 @@ void showBatteryStatus(){
         } // end if
     } // end if
 
+
     if (currentMillis - previousMillis >= onInterval){
         EEPROM.write(0,batteryHealth);
         batteryHealth = EEPROM.read(0);
@@ -303,7 +411,7 @@ void showBatteryStatus(){
         if(batteryLevel < 10){
             display.gotoXY(0,6);
             display.print("Please recharge!");
-        } // end if
+        }
         previousMillis = currentMillis;
         displayTime = currentMillis;
         batteryDisplayed = true;                        // To make the next if sentence only run once after this text have been ran
@@ -314,6 +422,146 @@ void showBatteryStatus(){
     } // end if
 
 }//end void showBatteryStatus
+
+void taxiDriver(){
+    unsigned long currentMillis = millis();
+    onDuty = true;
+    Serial.print(workCase);
+    switch (workCase)
+    {
+    case 1:
+        searchForPassenger();
+        break;
+    case 2:
+        drivePassenger();
+        break;
+    default:
+        searchForPassenger();
+        break;
+    } // end case
+    
+} // end void
+
+void searchForPassenger(){
+    unsigned long currentMillis = millis();
+    
+    if (passengerFound == true){
+
+            missionDistance = random(200,400);
+            motors.setSpeeds(0,0);
+            display.clear();
+            display.setLayout21x8();
+            display.print(F("The passenger want to travel"));
+            display.gotoXY(0,1);
+            display.print(F("travel for"));
+            display.gotoXY(12,1);
+            display.print(missionDistance);
+            display.gotoXY(18,1);
+            display.print(F("cm"));
+            display.gotoXY(0,3);
+            display.print(F("Do you take the job?"));
+            display.gotoXY(0,4);
+            display.print(F("A = YES"));
+            display.gotoXY(15,4);
+            display.print(F("B = NO"));
+            display.gotoXY(0,5);
+            display.print(F("C = Off duty"));
+            passengerFound = false;
+            while(taxiModeController == 0){
+                IrRemote();
+            }//end while
+            if (taxiModeController == yes){
+                delay(500);
+                startDistance = meassureDistance;
+                passengerEnteredMillis = currentMillis;
+                workCase = 2;
+            } // end if
+
+            else if (taxiModeController == no){
+                delay(500);
+                workCase = 1;
+                driveModeController = code2;
+            } // end if
+
+            else if (taxiModeController = zero){
+                delay(500);
+                driveModeController = code1;
+            } // end if 
+        taxiModeController = 0;   
+        } // end if
+} // end void
+
+void drivePassenger(){
+    unsigned long currentMillis = millis();
+    if (meassureDistance - startDistance >= missionDistance){
+        motors.setSpeeds(0,0);
+        unsigned long payment = ((missionDistance * 2000) / (currentMillis - passengerEnteredMillis));
+        account +=  payment;
+        display.clear();
+        display.setLayout21x8();
+        display.print(F("Passenger delivered"));
+        display.gotoXY(0,2);
+        display.print(F("Payment:"));
+        display.gotoXY(13,2);
+        display.print(payment);
+        display.gotoXY(18,2);
+        display.print(F("kr"));
+        display.gotoXY(0,4);
+        display.print(F("Continue Working?"));
+        display.gotoXY(0,5);
+        display.print(F("A = Search for client"));
+        display.gotoXY(0,6);
+        display.print(F("B = End work"));
+        while(taxiModeController == 0){
+            IrRemote();
+        }//end while
+        if (taxiModeController == yes){
+            delay(500);
+            startDistance = meassureDistance;
+            passengerEnteredMillis = currentMillis;
+            workCase = 1;
+        } // end if
+
+        else if (taxiModeController == no){
+            delay(500);
+            driveModeController = code1;
+        } // end if
+        taxiModeController = 0;  
+    } // end if
+} // end void
+
+void followLine(){
+    int16_t position = lineSensors.readLine(lineSensorValues);
+    /*display.gotoXY(0,0);
+    display.print(position);*/
+
+    int16_t error = position - 2000;
+    
+    int16_t speedifference = error/4 + 6*(error-lastError);
+
+    lastError = error;
+
+    int leftSpeed = (int16_t)maxSpeed + speedifference;
+    int rightSpeed = (int16_t)maxSpeed - speedifference;
+
+ 
+
+    leftSpeed = constrain(leftSpeed,0,(int16_t)maxSpeed);
+    rightSpeed = constrain(rightSpeed,0,(int16_t)maxSpeed);
+    motors.setSpeeds(leftSpeed,rightSpeed);
+} // end void
+
+void calibrateLineSensors(){
+     delay(1000);
+  for(uint16_t i = 0; i < 100; i++)
+  {
+    motors.setSpeeds(-200, 200);
+    lineSensors.calibrate();
+    } // end for
+   
+  motors.setSpeeds(0, 0);
+  delay(2000);
+} // end void
 
 void chargingMode(){
     unsigned long currentMillis = millis();
@@ -354,8 +602,7 @@ void chargingMode(){
         buttonA.waitForButton();
         chargingModeEntered = false;
     } // end if
-
-    if ((currentMillis % 500) == 0){                           // Just a idea, test for reliability
+                       // Just a idea, test for reliability
         display.clear();
         display.setLayout21x8();
         display.print(F("Charging mode"));
@@ -377,7 +624,9 @@ void chargingMode(){
         display.print(F("Debit account = "));
         display.gotoXY(16, 7);
         display.print(debit);
-    } // end if
+        while((buttonA.isPressed() == 0) and (buttonB.isPressed() == 0) and (buttonC.isPressed() == 0)){
+
+        }//end while
 
     if (buttonA.isPressed() == 1){
         if (account >= 10){
@@ -387,6 +636,7 @@ void chargingMode(){
             display.print(F("Wait while charging"));
             batteryLevel = constrain(batteryLevel, 0, 100);
             delay(1000);
+            driveModeController = code1;
         } // end if
         
         else{
@@ -578,9 +828,7 @@ void batteryLife(){
         motors.setSpeeds(0,0);
         display.clear();
         display.setLayout21x8();
-        display.gotoXY(7,1);
-        display.print(F("WARNING:"));
-        display.gotoXY(4,3);
+        display.gotoXY(4,1);
         display.print(F("Battery fault"));
         display.gotoXY(1,5);
         display.print(F("Battery health ="));
