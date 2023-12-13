@@ -18,34 +18,33 @@ Zumo32U4LineSensors lineSensors;
 Zumo32U4IMU imu;
 
 // Variables for batteryConsumption()
-int8_t batteryLevel = 100;
-long lastDistance = 0;
+uint8_t batteryLevel = 100;
+uint8_t timesCharged = 0;
 float consumptionMeasure = 0;
-int8_t timesCharged = 0;
 unsigned long batteryMillis = 0;
 
-// Variables for hiddenFeature()
-bool hiddenActivated = false;
+// Variables for hiddenFeatureForCharging()
+bool firstStage = false;
+bool countDownStarted = false;
+bool hiddenFeatureActivated = false;
 bool emergencyChargingUsed = false;
 bool emergencyChargeMode = false;
-bool countDownStarted = false;
-bool firstStage = false;
 unsigned long waitForStageTwo = 0;
 unsigned long countDownStart = 0;
-const long countDownInterval = 15000;
 
 // Variables for showBatteryStatus()
+bool batteryDisplayed = false;
 unsigned long previousMillis = 0;
 unsigned long refreshPreviousMillis = 0;
 unsigned long previousLowBatteryMillis = 0;
-long displayTime = 0;
-bool batteryDisplayed = false;
+unsigned long displayTime = 0;
 
 // Variables for speedometerAndMeassureDistance()
-long meassureDistance = 0;
+unsigned long meassureDistance = 0;
 float iAmSpeed = 0;
 
 // Variables for charging()
+bool chargingStationDetected = false;
 bool chargingModeEntered = false;
 int missingAmount = 0;
 int account = 100;
