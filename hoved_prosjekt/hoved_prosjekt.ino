@@ -929,33 +929,46 @@ void updateBatteryHealthEEPROM(){
 
 void wrongWayReverseAndTurn(){
     unsigned long currentMillis = millis();
+    const int reverseTimerInterval = 10000;
+
+    /* Values Calculated by reding sensor values of track and directly over tape, and then found the limit inbetween to 
+    make the function work. Might need to be changed when using another car. Since the working limits varied between 
+    the sensors, we did not make a function to automaticly calculate good limit values. */
     int sensorOneLimit = 1000;
     int sensorTwoLimit = 500;
     int sensorThreeLimit = 500;
     int sensorFourLimit = 700;
     int sensorFiveLimit = 1000;
+    
 
     lineSensors.read(lineSensorValues);
 
+    /* Registered if we drive trough a crossection with a left turn. We had to limit the code not to 
+    include automatic turning for crossection with right turn because of program storage space. */
     if((lineSensorValues[0] > 1300) && (lineSensorValues[1] > 900) && reverseTimerStarted == false){
         reverseTimerStarted = true;
         reverseTimer = currentMillis;
     } // end if
 
-    if (currentMillis - reverseTimer > 10000){
+    // Limits time to turn after passing a crossection
+    if (currentMillis - reverseTimer > reverseTimerInterval){
         reverseTimerStarted = false;
     } // end if
 
     if (reverseTimerStarted == true){
         if (trackIsLost == false){
             
+            // Checks if all sensors are of the track
             if ((lineSensorValues[0] <= sensorOneLimit) && (lineSensorValues[1] <= sensorTwoLimit) && (lineSensorValues[2] <= sensorThreeLimit) && (lineSensorValues[3] <= sensorFourLimit) && (lineSensorValues[4] <= sensorFiveLimit)){
                 motors.setSpeeds(200,176);
                 delay(500);
                 lineSensors.read(lineSensorValues);
+
+                // Rechecks if any sensors have found the track
                 if ((lineSensorValues[0] > sensorOneLimit) || (lineSensorValues[1] > sensorTwoLimit) || (lineSensorValues[2] > sensorThreeLimit) || (lineSensorValues[3] > sensorFourLimit) || (lineSensorValues[4] > sensorFiveLimit)){
                     previousDriveCase();
                 } // end if
+
                 else{
                     motors.setSpeeds(0,0);
                     delay(500);
