@@ -207,14 +207,12 @@ void speedometerAndMeassureDistance(){
         float avrage = (countsLeft+countsRight)/2;
         float distance = 75.81*12;
         float oneRound = 12.25221135;
-        
         float meters = avrage/distance*oneRound*5;
         iAmSpeed = meters;
         meassureDistance +=abs(meters)*0.2;
         lastDisplayTime = millis();
-
       } // end if
-}// end voud SpeedometerAndMeassureDistance
+}// end void
 
 void changeSpeed(){
     // Function to change the speed by using the remote
@@ -931,6 +929,8 @@ void wrongWayReverseAndTurn(){
     unsigned long currentMillis = millis();
     const int reverseTimerInterval = 10000;
 
+    lineSensors.read(lineSensorValues); // Reads the current values for each of the line sensors
+
     /* Values Calculated by reding sensor values of track and directly over tape, and then found the limit inbetween to 
     make the function work. Might need to be changed when using another car. Since the working limits varied between 
     the sensors, we did not make a function to automaticly calculate good limit values. */
@@ -940,8 +940,6 @@ void wrongWayReverseAndTurn(){
     int sensorFourLimit = 700;
     int sensorFiveLimit = 1000;
     
-
-    lineSensors.read(lineSensorValues);
 
     /* Registered if we drive trough a crossection with a left turn. We had to limit the code not to 
     include automatic turning for crossection with right turn because of program storage space. */

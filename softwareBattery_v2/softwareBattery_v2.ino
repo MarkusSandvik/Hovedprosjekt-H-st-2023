@@ -4,16 +4,7 @@
 
 /////////// NOTES ////////////
 /*
-- Add switchcase for display modes/ buzzer                              | DONE
-- Save batteryLevel in EEPROM                                           |
-- Create SensorNode (miniprosjekt?)                                     | 
-- Add switchcase in softwareBattery for special functions               |
-- Add lineFollower                                                      | DONE
-- Add switchcase in line follower for turning, job etc.                 |
-- Add Random based taxi job                                             | DONE (might need adjustment in payment calculation and random(LOW,HIGH))
-- Fix speed and distance calculation. Use encoders.getCountsAndReset    |
-- Add function to activate / deactivate hiddenfeature                   | DONE
-- Add function to activate emergency charging                           | Skal vi bare aktivere den med tastetrykk på fjernkontrollen?
+Dette er den orginale softwareBatterykoden før forbedring
 */
 
 Zumo32U4OLED display;
@@ -33,8 +24,8 @@ float consumptionMeasure = 0;
 int8_t timesCharged = 0;
 unsigned long batteryMillis = 0;
 
-// Variables for hiddenFeatureForCharging()
-bool hiddenFeatureActivated = false;
+// Variables for hiddenFeature()
+bool hiddenActivated = false;
 bool emergencyChargingUsed = false;
 bool emergencyChargeMode = false;
 bool countDownStarted = false;
@@ -54,7 +45,7 @@ bool batteryDisplayed = false;
 long meassureDistance = 0;
 float iAmSpeed = 0;
 
-// Variables for chargingMode()
+// Variables for charging()
 bool chargingModeEntered = false;
 int missingAmount = 0;
 int account = 100;
@@ -62,7 +53,6 @@ int debit = 0;
 
 // Variables for batteryLife()
 int batteryHealth = 100;
-int previousBatteryHealth;
 int timesBelowFive = 0;
 int lastMinuteAverageSpeed = 0;
 int lastMinuteMaxSpeed = 0;
@@ -106,9 +96,9 @@ void setup(){
 } // end setup
 
 void loop(){
-    speedometerAndMeassureDistance();
-    batteryConsumption();
-    hiddenFeatureForCharging();
+    SpeedometerAndMeassureDistance();
+    softwareBattery();
+    hiddenFeature();
     showBatteryStatus();
     chargingMode();
     batteryLife();
@@ -116,9 +106,10 @@ void loop(){
 
 void batteryConsumption(){
     // This functions reduces the batteryLevel based on speed
-    long currentMillis = millis();
+    unsigned long currentMillis = millis();
+    const int batteryLevelCalculationInterval = 200;
 
-    if (currentMillis - batteryMillis > 100){
+    if (currentMillis - batteryMillis > batteryLevelCalculationInterval){
     batteryMillis = currentMillis;
     consumptionMeasure += (abs(iAmSpeed)/30); // The distance measurement is based on the speed measurement, and we therefore did not use it in the calculation
     } // end if
@@ -140,45 +131,45 @@ void speedometerAndMeassureDistance(){
         float avrage = (countsLeft+countsRight)/2;
         float distance = 75.81*12;
         float oneRound = 12.25221135;
-        
         float meters = avrage/distance*oneRound*5;
         iAmSpeed = meters;
-        meassureDistance +=abs(meters)*0.2; // Use the absolute message to increase distance while driving backwards
+        meassureDistance +=abs(meters)*0.2;
         lastDisplayTime = millis();
       } // end if
-}// end voud SpeedometerAndMeassureDistance
+}// end void
 
 void hiddenFeatureForCharging(){
     // Function to activate a "secret" mode where driving backwards will increase the battery level. 
-    int currentMillis = millis();
+    unsigned long currentMillis = millis();
+    const int stageOneActiveInterval = 5000;
+    const int countDownInterval = 15000;
     imu.read();
 
     // Functions to turn on hiddenActivated
     //To activate the first stage, tilt the car quicly to with the clock around the x-axis (looking at the car from behind)
-    if ((imu.g.x > 15000) and (firstStage == false)){ 
+    if ((imu.g.x > 15000) && (firstStage == false)){
         firstStage = true;
         waitForStageTwo = currentMillis;
     } // end if
 
     // To activate hiddenFeature firstStep must be active, and then the car must be tilted quickly forward
-    if (firstStage == true){    
+    if (firstStage == true){
         if (imu.g.y > 15000){
             hiddenFeatureActivated = true;
-            ledRed(1);
+            ledGreen(1);
             display.clear();
             display.print(F("Hidden feature"));
         } // end if
     } // end if
 
     // Limits the time from first stage to second stage to maximum 5 seconds
-    if ((currentMillis - waitForStageTwo > 5000) and (firstStage == true)){
+    if ((currentMillis - waitForStageTwo > stageOneActiveInterval) && (firstStage == true)){
         firstStage = false;
     } // end if
-    // End of functions to turn on hiddenActivated
 
-    // Function to turn off hiddenActivated
+    // Function to turn off hiddenFeatureActivated
     if ((hiddenFeatureActivated == true) && (countDownStarted == false)){
-        countDownStart = currentMillis; 
+        countDownStart = currentMillis;
         countDownStarted = true;
     } // end if
 
@@ -186,26 +177,18 @@ void hiddenFeatureForCharging(){
     if ((currentMillis - countDownStart > countDownInterval) && (hiddenFeatureActivated == true)) {
         hiddenFeatureActivated = false;
         firstStage = false;
-        ledRed(0);
+        ledGreen(0);
         display.clear();
         display.setLayout21x8();
-        display.print(F("HiddenFeature deactivated"));
+        display.print(F("Hidden Feature deactivated"));
     } // end if
-
-
 
     if (hiddenFeatureActivated == true){ 
 
-        // Function to turn on emergencyChargingMode //////////////////////////////////////////////////////////// AMUND LEGG INN KNAPP FRA FJERNKONTROLL////////////////////////////
-        /*
-        if (AMUND LEGG INN KNAPPETRYKK){
-            emergencyChargingMode = true;
+        if (currentMillis - batteryMillis > 100){
+            batteryMillis = currentMillis;
+            consumptionMeasure -= (abs(iAmSpeed)/30); // EKSEMPEL PÅ FUNKSJON, OPPDATER NÅR VI TESTER MED DATA
         } // end if
-        */
-        
-        lastDistance = meassureDistance;
-        batteryMillis = currentMillis;
-        consumptionMeasure -= (abs(iAmSpeed)/30); // EKSEMPEL PÅ FUNKSJON, OPPDATER NÅR VI TESTER MED DATA
 
         if (consumptionMeasure <= -10){
             // Emergency charging regains ten times the amount of charging, but can only be used once
@@ -217,6 +200,7 @@ void hiddenFeatureForCharging(){
             else{
                 batteryLevel += 2;
             } // end else
+            consumptionMeasure = 0;
             batteryLevel = constrain(batteryLevel, 0, 100);
         } // end else
     } // end if
@@ -227,7 +211,7 @@ void showBatteryStatus(){
         Main layout: Speed and distance
         Battery layout: Battery level, Times charged and Battery Health
         Warning when battery is low
-    */
+    */  
     long onInterval;
     long offInterval;
     long refreshInterval;
@@ -244,7 +228,6 @@ void showBatteryStatus(){
     }else if(batteryLevel == 0){
         batteryCase = 3;
     }
-
 
     switch (batteryCase)
     {
@@ -270,7 +253,6 @@ void showBatteryStatus(){
         onInterval = 2000;
         offInterval = 1000;
         refreshInterval = 500;
-        unsigned long currentMillis = millis();
         if (currentMillis - previousLowBatteryMillis > 15000){
             display.print(F("Low Battery"));
             motors.setSpeeds(0,0);
@@ -283,8 +265,15 @@ void showBatteryStatus(){
         } // end if
         break;
     case 3:
-        //batteryCase2(); skal være når batteriet er helt utladet. Her må vi kunne legge inn en hidden feature som
-        //gjør at vi kan få litt strøm slik at den kommer seg til ladestasjonen.
+        driveModeController = code3;
+        display.clear();
+        display.setLayout21x8();
+        display.gotoXY(2,1);
+        display.print(F("Battery is empty"));
+        display.gotoXY(6,4);
+        display.print(F("GAME OVER"));
+        while (batteryLevel = 0){
+        } // end while
         break;
     
     default:
@@ -313,7 +302,6 @@ void showBatteryStatus(){
         } // end if
     } // end if
 
-
     if (currentMillis - previousMillis >= onInterval){
         batteryHealth = EEPROM.read(0);                 // Reads the batteryHealth from the EEPROM
         display.clear();
@@ -341,8 +329,7 @@ void showBatteryStatus(){
     if ((currentMillis - displayTime >= offInterval) && (batteryDisplayed == true)){
         batteryDisplayed = false;
     } // end if
-
-}//end void showBatteryStatus
+}//end void
 
 void chargingMode(){
     unsigned long currentMillis = millis();
@@ -381,10 +368,11 @@ void chargingMode(){
         display.gotoXY(0,7);
         display.print(F("Press A to exit"));
         buttonA.waitForButton();
+        driveModeController = code1;
         chargingModeEntered = false;
     } // end if
 
-    if ((currentMillis % 500) == 0){                           // Just a idea, test for reliability
+    else{             
         display.clear();
         display.setLayout21x8();
         display.print(F("Charging mode"));
@@ -406,7 +394,9 @@ void chargingMode(){
         display.print(F("Debit account = "));
         display.gotoXY(16, 7);
         display.print(debit);
-    } // end if
+        while((buttonA.isPressed() == 0) && (buttonB.isPressed() == 0) && (buttonC.isPressed() == 0)){
+        }//end while
+    } // end else
 
     if (buttonA.isPressed() == 1){
         if (account >= 10){
@@ -434,21 +424,21 @@ void chargingMode(){
             display.gotoXY(10,2);
             display.print(F("B = Cancel"));
 
-            while ((buttonA.isPressed() == 0) and (buttonB.isPressed() == 0)){
+            while ((buttonA.isPressed() == 0) && (buttonB.isPressed() == 0)){
             } // end while
             if (buttonA.isPressed() == 1){
                 debit += missingAmount;
                 account = 0;
+                batteryLevel += 10;
                 display.clear();
                 display.print(F("Wait while charging"));
                 batteryLevel = constrain(batteryLevel, 0, 100);
                 delay(1000);
-                chargingMode();
             } // end if
 
             if (buttonB.isPressed() == 1){
                 chargingModeEntered = false;
-                // QUIT CHARGING MODE, Integrate with driving switch case?
+                driveModeController = code1;
             } // end if
         } // end else
     } // end if
@@ -479,21 +469,21 @@ void chargingMode(){
             display.gotoXY(10,2);
             display.print(F("B = Cancel"));
 
-            while ((buttonA.isPressed() == 0) and (buttonB.isPressed() == 0)){
+            while ((buttonA.isPressed() == 0) && (buttonB.isPressed() == 0)){
             } // end while
             if (buttonA.isPressed() == 1){
                 debit += missingAmount;
                 account = 0;
+                batteryLevel += 50;
                 display.clear();
                 display.print(F("Wait while charging"));
                 batteryLevel = constrain(batteryLevel, 0, 100);
                 delay(5000);
-                chargingMode();
             } // end if
 
             if (buttonB.isPressed() == 1){
                 chargingModeEntered = false;
-                // QUIT CHARGING MODE, Integrate with driving switch case?
+                driveModeController = code1;
             } // end if
         } // end else
     } // end if
@@ -526,31 +516,39 @@ void chargingMode(){
             display.gotoXY(10,2);
             display.print(F("B = Cancel"));
 
-            while ((buttonA.isPressed() == 0) and (buttonB.isPressed() == 0)){
+            while ((buttonA.isPressed() == 0) && (buttonB.isPressed() == 0)){
             } // end while
             if (buttonA.isPressed() == 1){
                 debit += missingAmount;
                 account = 0;
+                batteryLevel += percentageUntilFull;
                 display.clear();
                 display.print(F("Wait while charging"));
                 batteryLevel = constrain(batteryLevel, 0, 100);
                 delay(chargingTime);
-                chargingMode();
             } // end if
 
             if (buttonB.isPressed() == 1){
                 chargingModeEntered = false;
-                // QUIT CHARGING MODE, Integrate with driving switch case?
+                driveModeController = code1;
             } // end if
         } // end else
     } // end if
+} // end void
+
+void updateBatteryHealthEEPROM(){
+    // Function to reduce times written to EEPROM
+    if (batteryHealth != previousBatteryHealth){
+            EEPROM.write(0,batteryHealth); // To reduce writing to EEPROM the value is only updated if value has changed
+            previousBatteryHealth = batteryHealth;
+        } // end if
 } // end void
 
 void batteryLife(){
     unsigned long currentMillis = millis();
     unsigned int oneMinute = 60000;
 
-    if ((batteryHealth <= 5) and (incidentRegistered == false)){    // Record times batterylevel is less than or equal to 5%
+    if ((batteryHealth <= 5) && (incidentRegistered == false)){    // Record times batterylevel is less than or equal to 5%
         timesBelowFive += 1;
         incidentRegistered = true;
     } // end if
@@ -559,12 +557,12 @@ void batteryLife(){
         incidentRegistered = false;
     } // end else if
 
-    if ((abs(iAmSpeed > 0)) and (motorRunning == false)){           // Record time when motors are running
+    if ((abs(iAmSpeed > 0)) && (motorRunning == false)){           // Record time when motors are running
         runStartedAt = currentMillis;
         motorRunning = true;
     } // end if
 
-    else if (abs(iAmSpeed == 0) and (motorRunning == true)){        // Stop recording when motors are stopped
+    else if (abs(iAmSpeed == 0) && (motorRunning == true)){        // Stop recording when motors are stopped
         runningHours += (currentMillis - runStartedAt);
         motorRunning = false;
     } // end else if
@@ -574,12 +572,12 @@ void batteryLife(){
         maxSpeedLastMinute = iAmSpeed;
     } // end if
 
-    if (iAmSpeed > (50 * 0,7) and (timerStarted == false)){        // Start recording time for motors going above 70% of absolute max speed
+    if (iAmSpeed > (50 * 0,7) && (timerStarted == false)){        // Start recording time for motors going above 70% of absolute max speed
         aboveSeventyTimer = currentMillis;                          // when speed goes above 70%
         timerStarted = true;
     } // end if
 
-    if (iAmSpeed < (50 * 0,7) and (timerStarted == true)){         // Stop recording time for motors going above 70% of absolute max speed
+    if (iAmSpeed < (50 * 0,7) && (timerStarted == true)){         // Stop recording time for motors going above 70% of absolute max speed
         timeNearMaxSpeed += (currentMillis - aboveSeventyTimer);    // when speed goes below 70% and add to total storage variable
         timerStarted = false;
     } // end if
@@ -597,13 +595,16 @@ void batteryLife(){
         motorRunning = false;
         timerStarted = false;
 
+        // Calculation to reduce batteryHealth based on avearage speed, max speed, time above 70% of max speed, times battery have been below 5% and time battery have been charged
         batteryHealth -= round(((lastMinuteAverageSpeed / 10) + (constrain(lastMinuteMaxSpeed - 30, 0, 30) / 10) + (lastMinuteAboveSeventyPercent / 2000) + timesBelowFive + timesCharged));
         batteryHealth = constrain(batteryHealth, 0, 100);
 
+        // Stores value for batteryHealth in EEPROM
         updateBatteryHealthEEPROM();
     } // end if
 
-    if ((currentMillis >= randomProductionFault) and (productionFaultEffect == false)){
+    // Function to reduce batteryHealth if batteryFault occurs. Reduses batteryLife by 50%
+    if ((currentMillis >= randomProductionFault) && (productionFaultEffect == false)){
         batteryHealth -= 50;
         batteryHealth = constrain(batteryHealth, 0, 100);
         productionFaultEffect = true;
@@ -624,10 +625,12 @@ void batteryLife(){
         updateBatteryHealthEEPROM();
     } // end if
 
-    if ((batteryHealth < 50) and (serviceDone == false)){ // Each battery can only have one Service
+    // Function to do a service if batteryHealth is below 50% and car have enough money
+    if ((batteryHealth < 50) && (serviceDone == false)){ // Each battery can only have one Service
         if(account >= 100){
             motors.setSpeeds(0,0);
             display.clear();
+            display.setLayout21x8();
             display.print(F("Battery need service"));
             display.gotoXY(0,2);
             display.print(F("Service price 100kr"));
@@ -649,9 +652,11 @@ void batteryLife(){
         } // end if
     } // end if
 
+    // Function to "change battery" when batteryHealth = 0;
     if (batteryHealth == 0){
         motors.setSpeeds(0,0);
         display.clear();
+        display.setLayout21x8();
         display.print(F("Change battery"));
         display.gotoXY(0,2);
         display.print(F("Opperation price 150kr"));
@@ -673,11 +678,4 @@ void batteryLife(){
         timesBelowFive = 0;                         // Value reset when battery is changed
         updateBatteryHealthEEPROM();               
     } // end if
-} // end void
-
-void updateBatteryHealthEEPROM(){
-    if (batteryHealth != previousBatteryHealth){
-            EEPROM.write(0,batteryHealth); // To reduce writing to EEPROM the value is only updated if value has changed
-            previousBatteryHealth = batteryHealth;
-        } // end if
 } // end void
