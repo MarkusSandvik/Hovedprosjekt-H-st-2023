@@ -93,7 +93,7 @@ const int freeTimeInterval = 15000;
 // Variables for followLine()
 unsigned int lineSensorValues[5];
 int16_t lastError = 0;
-int maxSpeed = 200; //////////////////////// 200
+int maxSpeed = 300; //////////////////////// 200
 
 // Variables for charging()
 bool chargingStationDetected = false;
@@ -129,6 +129,7 @@ unsigned long buzzerMillis;
 unsigned long buzzerPeriod;
 
 //Variables for wrongWayReverseAndTurn()
+byte lastGivenCase;
 bool trackIsLost = false;
 bool lostTrackCounterStarted = false;
 bool reverseTimerStarted = true;
@@ -136,7 +137,6 @@ unsigned long lostTrackCounter = 0;
 unsigned long reverseTimer = 0;
 
 ///////// TEST VARIABLES ////
-byte lastGivenCase;
 
 
 
@@ -165,8 +165,7 @@ void loop(){
     IrRemote();
     driveMode();
 
-    //wrongWayReverseAndTurn();
-    getReadyforLeftTurn();
+    wrongWayReverseAndTurn();
 
     speedometerAndMeassureDistance();
     changeSpeed();
@@ -953,96 +952,6 @@ void updateBatteryHealthEEPROM(){
         } // end if
 } // end void
 
-/*
-wrongWayReverseAndTurn():
-
-If no reading on any sensor, set speed straight forward for x time
-if reading regained, drive mode = last drive mode (need variable to remember last drive mode)
-if still no signal, set speed (0,0)
-Set speed straight backward and continue until reading on one of the side sensors.
-    if Reading on left sensor, turn left
-    else if reading on right sensor, turn right
-return to previous drive mode
-*/
-
-void wrongWayReverseAndTurn(){
-    unsigned long currentMillis = millis();
-    int sensorOneLimit = 1000;
-    int sensorTwoLimit = 500;
-    int sensorThreeLimit = 500;
-    int sensorFourLimit = 700;
-    int sensorFiveLimit = 1000;
-    int rightSpeed = ((7/8)*200);
-    lineSensors.read(lineSensorValues);
-    if (trackIsLost == false){
-
-        if ((lineSensorValues[0] > sensorOneLimit) || (lineSensorValues[1] > sensorTwoLimit) || (lineSensorValues[2] > sensorThreeLimit) || (lineSensorValues[3] > sensorFourLimit) || (lineSensorValues[4] > sensorFiveLimit)){
-            lostTrackCounterStarted = false;
-            previousDriveCase();
-        } // end if
-        
-        if ((lineSensorValues[0] <= sensorOneLimit) & (lineSensorValues[1] <= sensorTwoLimit) & (lineSensorValues[2] <= sensorThreeLimit) & (lineSensorValues[3] <= sensorFourLimit) & (lineSensorValues[4] <= sensorFiveLimit)){
-            if (lostTrackCounterStarted == false){
-                lostTrackCounter = currentMillis;
-                lostTrackCounterStarted = true;
-            } // end if
-
-            if ((lostTrackCounterStarted == true) & (currentMillis - lostTrackCounter > 200)){
-                motors.setSpeeds(200, 176);
-                delay(500);
-                if ((lineSensorValues[0] > sensorOneLimit) || (lineSensorValues[1] > sensorTwoLimit) || (lineSensorValues[2] > sensorThreeLimit) || (lineSensorValues[3] > sensorFourLimit) || (lineSensorValues[4] > sensorFiveLimit)){
-                    lostTrackCounterStarted = false;
-                    previousDriveCase();
-                } // end if
-                else{
-                    motors.setSpeeds(0,0);
-                    delay(500);
-                    trackIsLost = true;
-                } // end else
-            } // end if
-        } // end if 
-    } // end if
-
-    while (trackIsLost == true){
-        lineSensors.read(lineSensorValues);
-        if ((lineSensorValues[0] <= sensorOneLimit) & (lineSensorValues[4] <= sensorFiveLimit)){
-            motors.setSpeeds(-200, -176);
-        } // end if
-
-        else if (lineSensorValues[0] > sensorOneLimit){
-            motors.setSpeeds(0,0);
-
-            for (int i = 0; i < 200; i++){
-                motors.setSpeeds(0,i);
-                delay(5);
-            } // end for
-
-            for (int i = 200; i > 0; i--){
-                motors.setSpeeds(0,i);
-                delay(5);
-            } // end for
-            trackIsLost = false;
-            previousDriveCase();
-        } // end else if
-
-        else if (lineSensorValues[4] > sensorFiveLimit){
-            motors.setSpeeds(0,0);
-
-            for (int i = 0; i < 200; i++){
-                motors.setSpeeds(i,0);
-                delay(5);
-            } // end for
-            
-            for (int i = 200; i > 0; i--){
-                motors.setSpeeds(i,0);
-                delay(5);
-            } // end for
-            trackIsLost = false;
-            previousDriveCase();
-        } // end if
-    } // end if
-} // end void
-
 void previousDriveCase(){
     if (lastGivenCase = 0){
         driveModeController = code1;
@@ -1058,7 +967,7 @@ void previousDriveCase(){
     } // end else if
 } // end void
 
-void getReadyforLeftTurn(){
+void wrongWayReverseAndTurn(){
     unsigned long currentMillis = millis();
     int sensorOneLimit = 1000;
     int sensorTwoLimit = 500;
@@ -1068,7 +977,7 @@ void getReadyforLeftTurn(){
 
     lineSensors.read(lineSensorValues);
 
-    if(lineSensorValues[0] > 1300){
+    if((lineSensorValues[0] > 1300) & (lineSensorValues[1] > 900) & reverseTimerStarted == false){
         reverseTimerStarted = true;
         reverseTimer = currentMillis;
     } // end if
@@ -1117,22 +1026,6 @@ void getReadyforLeftTurn(){
                 trackIsLost = false;
                 previousDriveCase();
             } // end else if
-
-            else if (lineSensorValues[4] > sensorFiveLimit){
-                motors.setSpeeds(0,0);
-
-                for (int i = 0; i < 200; i++){
-                    motors.setSpeeds(i,0);
-                    delay(5);
-                } // end for
-                
-                for (int i = 200; i > 0; i--){
-                    motors.setSpeeds(i,0);
-                    delay(5);
-                } // end for
-                trackIsLost = false;
-                previousDriveCase();
-            } // end if
-        } // end if
+        } // end while
     } // end if
 } // end void

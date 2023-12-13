@@ -54,8 +54,6 @@ unsigned long irNum;
 unsigned long driveModeController;
 unsigned long taxiModeController;
 unsigned long changeSpeedController;
-/////////////////////////////
-
 
 // Variables for hiddenFeatureForCharging()
 bool firstStage = false;
@@ -82,13 +80,9 @@ float iAmSpeed = 0;
 int workCase = 0;
 bool passengerFound = false;
 bool onDuty = false;
-unsigned long searchTime = 0;
-unsigned long missionStart = 0;
-unsigned long missionDistance = 0;
+unsigned int missionDistance = 0;
 unsigned long startDistance = 0;
 unsigned long passengerEnteredMillis = 0;
-unsigned long previousWorkRequest = 0;
-const int freeTimeInterval = 15000;
 
 // Variables for followLine()
 unsigned int lineSensorValues[5];
@@ -127,6 +121,13 @@ unsigned long randomProductionFault = 0;
 //Variables for buzzer
 unsigned long buzzerMillis;
 unsigned long buzzerPeriod;
+
+//Variables for wrongWayReverseAndTurn()
+byte lastGivenCase;
+bool trackIsLost = false;
+bool reverseTimerStarted = false;
+unsigned long reverseTimer = 0;
+
 ///////// TEST VARIABLES ////
 
 
@@ -137,7 +138,6 @@ void setup(){
     imu.init();
     imu.enableDefault();
     IrReceiver.begin(RECV_PIN, ENABLE_LED_FEEDBACK);
-    batteryHealth = EEPROM.read(0);
     lineSensors.initFiveSensors();
 
     randomProductionFault = random(pow(2,17), pow(2,19));
@@ -149,6 +149,7 @@ void setup(){
     display.print(F("to start"));
     buttonA.waitForButton();
     //EEPROM.write(0,100);
+    batteryHealth = EEPROM.read(0);
     calibrateLineSensors();
 } // end setup
 
@@ -161,6 +162,9 @@ void loop(){
     hiddenFeatureForCharging();
     showBatteryStatus();
     batteryLife();
+
+    wrongWayReverseAndTurn();
+
     //taxiDriver();
     //searchForPassenger();
     //drivePassenger();
@@ -192,7 +196,6 @@ void IrRemote(){
 } // end void
 
 void driveMode(){
-    Serial.println(driveModeController);
     switch (driveModeController)
     {
     case code1:
@@ -352,7 +355,6 @@ void showBatteryStatus(){
         batteryCase = 3;
     }
 
-
     switch (batteryCase)
     {
     case 0:
@@ -389,8 +391,15 @@ void showBatteryStatus(){
         } // end if
         break;
     case 3:
-        //batteryCase2(); skal være når batteriet er helt utladet. Her må vi kunne legge inn en hidden feature som
-        //gjør at vi kan få litt strøm slik at den kommer seg til ladestasjonen.
+        driveModeController = code3;
+        display.clear();
+        display.setLayout21x8();
+        display.gotoXY(2,1);
+        display.print(F("Battery is empty"));
+        display.gotoXY(6,4);
+        display.print(F("GAME OVER"));
+        while (batteryLevel = 0){
+        } // end while
         break;
     
     default:
@@ -453,7 +462,6 @@ void showBatteryStatus(){
 void taxiDriver(){
     unsigned long currentMillis = millis();
     onDuty = true;
-    Serial.print(workCase);
     switch (workCase)
     {
     case 1:
@@ -877,6 +885,7 @@ void batteryLife(){
         if(account >= 100){
             motors.setSpeeds(0,0);
             display.clear();
+            display.setLayout21x8();
             display.print(F("Battery need service"));
             display.gotoXY(0,2);
             display.print(F("Service price 100kr"));
@@ -901,6 +910,7 @@ void batteryLife(){
     if (batteryHealth == 0){
         motors.setSpeeds(0,0);
         display.clear();
+        display.setLayout21x8();
         display.print(F("Change battery"));
         display.gotoXY(0,2);
         display.print(F("Opperation price 150kr"));
@@ -930,4 +940,82 @@ void updateBatteryHealthEEPROM(){
             EEPROM.write(0,batteryHealth); // To reduce writing to EEPROM the value is only updated if value has changed
             previousBatteryHealth = batteryHealth;
         } // end if
+} // end void
+
+void wrongWayReverseAndTurn(){
+    unsigned long currentMillis = millis();
+    int sensorOneLimit = 1000;
+    int sensorTwoLimit = 500;
+    int sensorThreeLimit = 500;
+    int sensorFourLimit = 700;
+    int sensorFiveLimit = 1000;
+
+    lineSensors.read(lineSensorValues);
+
+    if((lineSensorValues[0] > 1300) & (lineSensorValues[1] > 900) & reverseTimerStarted == false){
+        reverseTimerStarted = true;
+        reverseTimer = currentMillis;
+    } // end if
+
+    if (currentMillis - reverseTimer > 10000){
+        reverseTimerStarted = false;
+    } // end if
+
+    if (reverseTimerStarted == true){
+        if (trackIsLost == false){
+            
+            if ((lineSensorValues[0] <= sensorOneLimit) & (lineSensorValues[1] <= sensorTwoLimit) & (lineSensorValues[2] <= sensorThreeLimit) & (lineSensorValues[3] <= sensorFourLimit) & (lineSensorValues[4] <= sensorFiveLimit)){
+                motors.setSpeeds(200,176);
+                delay(500);
+                lineSensors.read(lineSensorValues);
+                if ((lineSensorValues[0] > sensorOneLimit) || (lineSensorValues[1] > sensorTwoLimit) || (lineSensorValues[2] > sensorThreeLimit) || (lineSensorValues[3] > sensorFourLimit) || (lineSensorValues[4] > sensorFiveLimit)){
+                    previousDriveCase();
+                } // end if
+                else{
+                    motors.setSpeeds(0,0);
+                    delay(500);
+                    trackIsLost = true;
+                } // end if
+            } // end if
+        } // end if
+
+        while (trackIsLost == true){
+            reverseTimerStarted = false;
+            lineSensors.read(lineSensorValues);
+            if ((lineSensorValues[0] <= sensorOneLimit) & (lineSensorValues[4] <= sensorFiveLimit)){
+                motors.setSpeeds(-200, -176);
+            } // end if
+
+            else if (lineSensorValues[0] > sensorOneLimit){
+                motors.setSpeeds(0,0);
+
+                for (int i = 0; i < 200; i++){
+                    motors.setSpeeds(0,i);
+                    delay(5);
+                } // end for
+
+                for (int i = 200; i > 0; i--){
+                    motors.setSpeeds(0,i);
+                    delay(5);
+                } // end for
+                trackIsLost = false;
+                previousDriveCase();
+            } // end else if
+        } // end while
+    } // end if
+} // end void
+
+void previousDriveCase(){
+    if (lastGivenCase = 0){
+        driveModeController = code1;
+    } // end if
+    else if (lastGivenCase = 1){
+        driveModeController = code2;
+    } // end else if
+    else if (lastGivenCase = 2){
+        driveModeController = code3;
+    } // end else if
+    else if (lastGivenCase = 3){
+        driveModeController = chargingStation;
+    } // end else if
 } // end void
