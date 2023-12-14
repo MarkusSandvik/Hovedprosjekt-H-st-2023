@@ -147,7 +147,7 @@ void hiddenFeatureForCharging(){
     if (hiddenFeatureActivated == true){ 
         hiddenFeature();
     } // end if
-    
+
     deactivationOfHiddenFeature();
 } // end void
 
@@ -361,7 +361,7 @@ void emptyBattery(){
     display.print(F("GAME OVER"));
     while (batteryLevel = 0){
     } // end while
-} // end if
+} // end void
 
 void chargingMode(){
     unsigned long currentMillis = millis();
