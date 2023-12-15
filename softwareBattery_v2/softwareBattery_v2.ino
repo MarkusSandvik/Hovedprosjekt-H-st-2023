@@ -1,11 +1,8 @@
+// Vedlegg 3: Kode for software batteriet etter forbedring 
+
 #include <Wire.h>
 #include <Zumo32U4.h>
 #include <EEPROM.h>
-
-/////////// NOTES ////////////
-/*
-Dette er den orginale softwareBatterykoden før forbedring
-*/
 
 Zumo32U4OLED display;
 Zumo32U4Encoders encoders;
@@ -73,10 +70,6 @@ unsigned long minuteStartDistance = 0;
 unsigned long randomProductionFault = 0;
 
 
-///////// TEST VARIABLES ////
-
-
-
 void setup(){
     Serial.begin(9600);
     Wire.begin();
@@ -99,12 +92,10 @@ void setup(){
 void loop(){
     speedometerAndMeassureDistance();
     batteryConsumption();
-    hiddenFeature();
     showBatteryStatus();
     chargingMode();
     batteryLife();
 } // end loop
-
 
 void speedometerAndMeassureDistance(){
     // This function calculates the current speed and increse the distance, and stores them in global variables
@@ -128,27 +119,25 @@ void batteryConsumption(){
     unsigned long currentMillis = millis();
     const int batteryLevelCalculationInterval = 200;
 
-    if (currentMillis - batteryMillis > batteryLevelCalculationInterval){
-    batteryMillis = currentMillis;
-    consumptionMeasure += (abs(iAmSpeed)/30); // The distance measurement is based on the speed measurement, and we therefore did not use it in the calculation
-    } // end if
-
-    if (consumptionMeasure >= 10){
-        batteryLevel -= 1;
-        consumptionMeasure = 0;
-    } // end if
-    batteryLevel = constrain(batteryLevel, 0, 100);
-} // end void
-
-void hiddenFeatureForCharging(){
-
     activationOfhiddenFeature();
+    deactivationOfHiddenFeature();
 
     if (hiddenFeatureActivated == true){ 
         hiddenFeature();
     } // end if
+    
+    else{
+        if (currentMillis - batteryMillis > batteryLevelCalculationInterval){
+        batteryMillis = currentMillis;              // The distance measurement is based on the speed measurement, 
+        consumptionMeasure += (abs(iAmSpeed)/30);   // and we therefore did not use it in the calculation.
+        } // end if
 
-    deactivationOfHiddenFeature();
+        if (consumptionMeasure >= 10){
+            batteryLevel -= 1;
+            consumptionMeasure = 0;
+        } // end if
+        batteryLevel = constrain(batteryLevel, 0, 100);
+    } // end else
 } // end void
 
 void activationOfhiddenFeature(){
@@ -381,7 +370,6 @@ void chargingMode(){
         if (account >= 10){
             chargeTenPercent();
         } // end if
-        
         else{
             missingAmount = 10 - account;
             chargeOnDebit(10);
@@ -393,7 +381,6 @@ void chargingMode(){
         if (account >= 50){
             chargeFiftyPercent();
         } // end if
-        
         else{
             missingAmount = 50 - account;
             chargeOnDebit(50);
@@ -406,7 +393,6 @@ void chargingMode(){
         if (account >= (percentageUntilFull)){
             chargeFullBattery(percentageUntilFull);
         } // end if
-        
         else{
             missingAmount = percentageUntilFull - account;
             chargeOnDebit(percentageUntilFull);

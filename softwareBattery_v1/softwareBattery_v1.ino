@@ -1,11 +1,8 @@
+// Vedlegg 2: Kode for software batteriet før forbedring. 
+
 #include <Wire.h>
 #include <Zumo32U4.h>
 #include <EEPROM.h>
-
-/////////// NOTES ////////////
-/*
-Dette er den orginale softwareBatterykoden før forbedring
-*/
 
 Zumo32U4OLED display;
 Zumo32U4Encoders encoders;
@@ -71,10 +68,6 @@ unsigned long randomProductionFault = 0;
 unsigned long lastMinuteAboveSeventyPercent = 0;
 
 
-///////// TEST VARIABLES ////
-
-
-
 void setup(){
     Serial.begin(9600);
     Wire.begin();
@@ -95,30 +88,12 @@ void setup(){
 } // end setup
 
 void loop(){
-    SpeedometerAndMeassureDistance();
-    softwareBattery();
-    hiddenFeature();
+    speedometerAndMeassureDistance();
+    batteryConsumption();
     showBatteryStatus();
     chargingMode();
     batteryLife();
 } // end loop
-
-void batteryConsumption(){
-    // This functions reduces the batteryLevel based on speed
-    unsigned long currentMillis = millis();
-    const int batteryLevelCalculationInterval = 200;
-
-    if (currentMillis - batteryMillis > batteryLevelCalculationInterval){
-    batteryMillis = currentMillis;
-    consumptionMeasure += (abs(iAmSpeed)/30); // The distance measurement is based on the speed measurement, and we therefore did not use it in the calculation
-    } // end if
-
-    if (consumptionMeasure >= 10){
-        batteryLevel -= 1;
-        consumptionMeasure = 0;
-    } // end if
-    batteryLevel = constrain(batteryLevel, 0, 100);
-} // end void
 
 void speedometerAndMeassureDistance(){
     // This function calculates the current speed and increse the distance, and stores them in global variables
@@ -136,6 +111,23 @@ void speedometerAndMeassureDistance(){
         lastDisplayTime = millis();
       } // end if
 }// end void
+
+void batteryConsumption(){
+    // This functions reduces the batteryLevel based on speed
+    unsigned long currentMillis = millis();
+    const int batteryLevelCalculationInterval = 200;
+
+    if (currentMillis - batteryMillis > batteryLevelCalculationInterval){
+    batteryMillis = currentMillis;              // The distance measurement is based on the speed measurement, 
+    consumptionMeasure += (abs(iAmSpeed)/30);   // and we therefore did not use it in the calculation.
+    } // end if
+
+    if (consumptionMeasure >= 10){
+        batteryLevel -= 1;
+        consumptionMeasure = 0;
+    } // end if
+    batteryLevel = constrain(batteryLevel, 0, 100);
+} // end void
 
 void hiddenFeatureForCharging(){
     // Function to activate a "secret" mode where driving backwards will increase the battery level. 
